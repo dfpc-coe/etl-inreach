@@ -109,7 +109,7 @@ export default class Task extends ETL {
 
                 console.log(`ok - ${share.ShareId} has ${xml.kml.Document[0].Folder[0].Placemark.length} locations`);
                 for (const placemark of xml.kml.Document[0].Folder[0].Placemark) {
-                    if (!placemark.Point || !placemark.Point[0]) break;
+                    if (!placemark.Point || !placemark.Point[0]) continue;
 
                     const coords = placemark.Point[0].coordinates[0].split(',').map((ele: string) => {
                         return parseFloat(ele);
