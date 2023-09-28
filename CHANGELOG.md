@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v2.0.1
+
+- :bug: Continue on parsing error
+
 ### v2.0.0
 
 - :rocket: Update to ETL@2
