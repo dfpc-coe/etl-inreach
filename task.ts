@@ -103,6 +103,7 @@ export default class Task extends ETL {
 
                 if (!body.trim()) return features;
 
+console.error(body);
                 const xml = await xml2js.parseStringPromise(body);
                 if (!xml.kml || !xml.kml.Document) throw new Error('XML Parse Error: Document not found');
                 if (!xml.kml.Document[0] || !xml.kml.Document[0].Folder || !xml.kml.Document[0].Folder[0]) return;

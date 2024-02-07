@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.0.0
+
+- :rocket: Update in latest token format
+
 ### v2.0.1
 
 - :bug: Continue on parsing error
