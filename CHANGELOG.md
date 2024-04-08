@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.1.1
+
+- :arrow_up: Update Core Deps
+
 ### v3.1.0
 
 - :rocket: Add additional properties including `Course` and `Speed`
