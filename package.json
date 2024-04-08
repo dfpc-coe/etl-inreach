@@ -21,6 +21,7 @@
         "typescript": "^5.0.4"
     },
     "dependencies": {
+        "@sinclair/typebox": "^0.32.20",
         "@tak-ps/etl": "^4.0.0",
         "@tmcw/togeojson": "^5.6.0",
         "@types/geojson": "^7946.0.10",

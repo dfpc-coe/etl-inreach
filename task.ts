@@ -3,7 +3,7 @@ import moment from 'moment';
 import { FeatureCollection, Feature, Geometry } from 'geojson';
 import { Static, Type, TSchema } from '@sinclair/typebox';
 import xml2js from 'xml2js';
-import ETL, { Event, SchemaType } from '@tak-ps/etl';
+import ETL, { Event, SchemaType, handler as internal, local } from '@tak-ps/etl';
 
 export interface Share {
     ShareId: string;
@@ -12,7 +12,7 @@ export interface Share {
 }
 
 export default class Task extends ETL {
-    static async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
+    async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
         if (type === SchemaType.Input) {
             return Type.Object({
                 'INREACH_MAP_SHARES': Type.Array(Type.Object({
@@ -149,7 +149,7 @@ export default class Task extends ETL {
     }
 }
 
-const handler = Task.handler;
-await Task.local(import.meta.url);
-export { handler };
-
+await local(new Task(), import.meta.url);
+export async function handler(event: Event = {}) {
+    return await internal(new Task(), event);
+}
