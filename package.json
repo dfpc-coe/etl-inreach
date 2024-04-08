@@ -13,7 +13,6 @@
     "author": "Nick Ingalls <nick@ingalls.ca>",
     "license": "ISC",
     "devDependencies": {
-        "@types/jsonwebtoken": "^9.0.1",
         "@types/xml2js": "^0.4.11",
         "@typescript-eslint/eslint-plugin": "^7.0.0",
         "@typescript-eslint/parser": "^7.0.0",

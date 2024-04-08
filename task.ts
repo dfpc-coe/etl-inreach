@@ -88,7 +88,7 @@ export default class Task extends ETL {
                         return parseFloat(ele);
                     });
 
-                    const extended = {};
+                    const extended: Record<string, string> = {};
                     for (const ext of placemark.ExtendedData[0].Data) {
                         extended[ext.$.name] = ext.value[0];
                     }
