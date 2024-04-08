@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.1.0
+
+- :rocket: Add additional properties including `Course` and `Speed`
+
 ### v3.0.0
 
 - :rocket: Update in latest token format

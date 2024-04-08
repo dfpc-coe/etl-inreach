@@ -1,19 +1,9 @@
 import fs from 'node:fs';
 import moment from 'moment';
 import { FeatureCollection, Feature, Geometry } from 'geojson';
+import { Static, Type, TSchema } from '@sinclair/typebox';
 import xml2js from 'xml2js';
-import { JSONSchema6 } from 'json-schema';
 import ETL, { Event, SchemaType } from '@tak-ps/etl';
-
-try {
-    const dotfile = new URL('.env', import.meta.url);
-
-    fs.accessSync(dotfile);
-
-    Object.assign(process.env, JSON.parse(String(fs.readFileSync(dotfile))));
-} catch (err) {
-    console.log('ok - no .env file loaded');
-}
 
 export interface Share {
     ShareId: string;
@@ -22,56 +12,39 @@ export interface Share {
 }
 
 export default class Task extends ETL {
-    static async schema(type: SchemaType = SchemaType.Input): Promise<JSONSchema6> {
+    static async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
         if (type === SchemaType.Input) {
-            return {
-                type: 'object',
-                required: ['INREACH_MAP_SHARES'],
-                properties: {
-                    'INREACH_MAP_SHARES': {
-                        type: 'array',
-                        description: 'Inreach Share IDs to pull data from',
-                        // @ts-ignore
-                        display: 'table',
-                        items: {
-                            type: 'object',
-                            required: [
-                                'ShareID',
-                            ],
-                            properties: {
-                                CallSign: {
-                                    type: 'string',
-                                    description: 'Human Readable Name of the Operator - Used as the callsign in TAK'
-                                },
-                                ShareId: {
-                                    type: 'string',
-                                    description: 'Garmin Inreach Share ID or URL'
-                                },
-                                Password: {
-                                    type: 'string',
-                                    description: 'Optional: Garmin Inreach MapShare Password'
-                                }
-                            }
-                        }
-                    },
-                    'DEBUG': {
-                        type: 'boolean',
-                        default: false,
-                        description: 'Print ADSBX results in logs'
-                    }
-                }
-            }
+            return Type.Object({
+                'INREACH_MAP_SHARES': Type.Array(Type.Object({
+                    ShareId: Type.String({ description: 'Garmin Inreach Share ID or URL' }),
+                    CallSign: Type.Optional(Type.String({ description: 'Human Readable Name of the Operator - Used as the callsign in TAK' })),
+                    Password: Type.Optional(Type.String({ description: 'Optional: Garmin Inreach MapShare Password' }))
+                }, {
+                    description: 'Inreach Share IDs to pull data from',
+                    display: 'table',
+                })),
+                'DEBUG': Type.Boolean({
+                    default: false,
+                    description: 'Print ADSBX results in logs'
+                })
+            })
         } else {
-            return {
-                type: 'object',
-                required: [],
-                properties: {}
-            }
+            return Type.Object({
+                inreachId: Type.String(),
+                inreachName: Type.String(),
+                inreachDeviceType: Type.String(),
+                inreachIMEI: Type.String(),
+                inreachIncidentId: Type.String(),
+                inreachValidFix: Type.String(),
+                inreachText: Type.String(),
+                inreachEvent: Type.String(),
+                inreachDeviceId: Type.String(),
+            })
         }
     }
 
     async control(): Promise<void> {
-        const layer = await this.layer();
+        const layer = await this.fetchLayer();
 
         if (!layer.environment.INREACH_MAP_SHARES) throw new Error('No INREACH_MAP_SHARES Provided');
         if (!Array.isArray(layer.environment.INREACH_MAP_SHARES)) throw new Error('INREACH_MAP_SHARES must be an array');
@@ -103,7 +76,6 @@ export default class Task extends ETL {
 
                 if (!body.trim()) return features;
 
-console.error(body);
                 const xml = await xml2js.parseStringPromise(body);
                 if (!xml.kml || !xml.kml.Document) throw new Error('XML Parse Error: Document not found');
                 if (!xml.kml.Document[0] || !xml.kml.Document[0].Folder || !xml.kml.Document[0].Folder[0]) return;
@@ -116,10 +88,26 @@ console.error(body);
                         return parseFloat(ele);
                     });
 
+                    const extended = {};
+                    for (const ext of placemark.ExtendedData[0].Data) {
+                        extended[ext.$.name] = ext.value[0];
+                    }
+
                     const feat: Feature<Geometry, { [name: string]: any; }> = {
                         id: `inreach-${share.CallSign}`,
                         type: 'Feature',
                         properties: {
+                            inreachId: extended['Id'],
+                            inreachName: extended['Name'],
+                            inreachDeviceType: extended['Device Type'],
+                            inreachIMEI: extended['IMEI'],
+                            inreachIncidentId: extended['Incident Id'],
+                            inreachValidFix: extended['Valid GPS Fix'],
+                            inreachText: extended['Text'],
+                            inreachEvent: extended['Event'],
+                            inreachDeviceId: extended['Device Identifier'],
+                            course: Number(extended['Course'].replace(/\s.*/, '')),
+                            speed: Number(extended['Velocity'].replace(/\s.*/, '')) * 0.277778, //km/h => m/s
                             callsign: share.CallSign,
                             time: new Date(placemark.TimeStamp[0].when[0]),
                             start: new Date(placemark.TimeStamp[0].when[0])
@@ -161,15 +149,7 @@ console.error(body);
     }
 }
 
-export async function handler(event: Event = {}) {
-    if (event.type === 'schema:input') {
-        return await Task.schema(SchemaType.Input);
-    } else if (event.type === 'schema:output') {
-        return await Task.schema(SchemaType.Output);
-    } else {
-        const task = new Task();
-        await task.control();
-    }
-}
+const handler = Task.handler;
+await Task.local(import.meta.url);
+export { handler };
 
-if (import.meta.url === `file://${process.argv[1]}`) handler();

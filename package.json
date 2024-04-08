@@ -15,18 +15,18 @@
     "devDependencies": {
         "@types/jsonwebtoken": "^9.0.1",
         "@types/xml2js": "^0.4.11",
-        "@typescript-eslint/eslint-plugin": "^6.0.0",
-        "@typescript-eslint/parser": "^6.0.0",
+        "@typescript-eslint/eslint-plugin": "^7.0.0",
+        "@typescript-eslint/parser": "^7.0.0",
         "eslint": "^8.31.0",
         "ts-node": "^10.9.1",
         "typescript": "^5.0.4"
     },
     "dependencies": {
-        "@tak-ps/etl": "^3.0.1",
+        "@tak-ps/etl": "^4.0.0",
         "@tmcw/togeojson": "^5.6.0",
         "@types/geojson": "^7946.0.10",
         "@xmldom/xmldom": "^0.8.7",
         "moment": "^2.29.4",
-        "xml2js": "^0.5.0"
+        "xml2js": "^0.6.0"
     }
 }
