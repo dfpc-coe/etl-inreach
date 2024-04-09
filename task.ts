@@ -1,9 +1,8 @@
-import fs from 'node:fs';
 import moment from 'moment';
 import { FeatureCollection, Feature, Geometry } from 'geojson';
 import { Static, Type, TSchema } from '@sinclair/typebox';
 import xml2js from 'xml2js';
-import ETL, { Event, SchemaType, handler as internal, local } from '@tak-ps/etl';
+import ETL, { Event, SchemaType, handler as internal, local, env } from '@tak-ps/etl';
 
 export interface Share {
     ShareId: string;
@@ -149,6 +148,7 @@ export default class Task extends ETL {
     }
 }
 
+env(import.meta.url)
 await local(new Task(), import.meta.url);
 export async function handler(event: Event = {}) {
     return await internal(new Task(), event);
