@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.1.4
+
+- :arrow_up: Update ETL Base
+
 ### v3.1.3
 
 - :arrow_up: Update Core Deps
