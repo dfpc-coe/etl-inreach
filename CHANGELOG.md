@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.2.0
+
+- :rocket: Add `inreachReceive` time
+
 ### v3.1.4
 
 - :arrow_up: Update ETL Base

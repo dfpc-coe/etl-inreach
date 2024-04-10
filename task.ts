@@ -38,6 +38,7 @@ export default class Task extends ETL {
                 inreachText: Type.String(),
                 inreachEvent: Type.String(),
                 inreachDeviceId: Type.String(),
+                inreachReceive: Type.String({ format: 'date-time' }),
             })
         }
     }
@@ -105,6 +106,7 @@ export default class Task extends ETL {
                             inreachText: extended['Text'],
                             inreachEvent: extended['Event'],
                             inreachDeviceId: extended['Device Identifier'],
+                            inreachReceive: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
                             course: Number(extended['Course'].replace(/\s.*/, '')),
                             speed: Number(extended['Velocity'].replace(/\s.*/, '')) * 0.277778, //km/h => m/s
                             callsign: share.CallSign,
