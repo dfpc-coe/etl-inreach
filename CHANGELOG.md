@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.3.0
+
+- :rocket: Use metadata
+
 ### v3.2.0
 
 - :rocket: Add `inreachReceive` time

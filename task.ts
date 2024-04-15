@@ -97,21 +97,23 @@ export default class Task extends ETL {
                         id: `inreach-${share.CallSign}`,
                         type: 'Feature',
                         properties: {
-                            inreachId: extended['Id'],
-                            inreachName: extended['Name'],
-                            inreachDeviceType: extended['Device Type'],
-                            inreachIMEI: extended['IMEI'],
-                            inreachIncidentId: extended['Incident Id'],
-                            inreachValidFix: extended['Valid GPS Fix'],
-                            inreachText: extended['Text'],
-                            inreachEvent: extended['Event'],
-                            inreachDeviceId: extended['Device Identifier'],
-                            inreachReceive: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
                             course: Number(extended['Course'].replace(/\s.*/, '')),
                             speed: Number(extended['Velocity'].replace(/\s.*/, '')) * 0.277778, //km/h => m/s
                             callsign: share.CallSign,
                             time: new Date(placemark.TimeStamp[0].when[0]),
-                            start: new Date(placemark.TimeStamp[0].when[0])
+                            start: new Date(placemark.TimeStamp[0].when[0]),
+                            metadata: {
+                                inreachId: extended['Id'],
+                                inreachName: extended['Name'],
+                                inreachDeviceType: extended['Device Type'],
+                                inreachIMEI: extended['IMEI'],
+                                inreachIncidentId: extended['Incident Id'],
+                                inreachValidFix: extended['Valid GPS Fix'],
+                                inreachText: extended['Text'],
+                                inreachEvent: extended['Event'],
+                                inreachDeviceId: extended['Device Identifier'],
+                                inreachReceive: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
+                            }
                         },
                         geometry: {
                             type: 'Point',

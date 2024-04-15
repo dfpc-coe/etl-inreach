@@ -14,15 +14,14 @@
     "license": "ISC",
     "devDependencies": {
         "@types/xml2js": "^0.4.11",
-        "@typescript-eslint/eslint-plugin": "^7.0.0",
-        "@typescript-eslint/parser": "^7.0.0",
         "eslint": "^8.31.0",
         "ts-node": "^10.9.1",
-        "typescript": "^5.0.4"
+        "typescript": "^5.0.4",
+        "typescript-eslint": "^7.7.0"
     },
     "dependencies": {
         "@sinclair/typebox": "^0.32.20",
-        "@tak-ps/etl": "^4.0.0",
+        "@tak-ps/etl": "^4.3.4",
         "@tmcw/togeojson": "^5.6.0",
         "@types/geojson": "^7946.0.10",
         "@xmldom/xmldom": "^0.8.7",
