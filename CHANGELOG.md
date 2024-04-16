@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.4.0
+
+- :arrow_up: Update to latest ETL Base
+
 ### v3.3.0
 
 - :rocket: Use metadata
