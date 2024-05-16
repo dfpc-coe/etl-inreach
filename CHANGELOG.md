@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.4.1
+
+- :arrow_up: Remove Legacy ESLint
+
 ### v3.4.0
 
 - :arrow_up: Update to latest ETL Base

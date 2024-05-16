@@ -1,6 +1,6 @@
 import moment from 'moment';
 import { FeatureCollection, Feature, Geometry } from 'geojson';
-import { Static, Type, TSchema } from '@sinclair/typebox';
+import { Type, TSchema } from '@sinclair/typebox';
 import xml2js from 'xml2js';
 import ETL, { Event, SchemaType, handler as internal, local, env } from '@tak-ps/etl';
 
