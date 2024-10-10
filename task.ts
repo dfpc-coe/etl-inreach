@@ -68,7 +68,12 @@ export default class Task extends ETL {
                 const url = new URL(`/feed/Share/${share.ShareId}`, 'https://explore.garmin.com')
                 url.searchParams.append('d1', moment().subtract(30, 'minutes').utc().format());
 
-                const kmlres = await fetch(url);
+                const headers = new Headers();
+                if (share.Password) {
+                    headers.append('Authorization', 'Basic ' + Buffer.from(":" + share.Password).toString('base64'));
+                }
+
+                const kmlres = await fetch(url, { headers });
                 const body = await kmlres.text();
 
                 const featuresmap: Map<string, Feature> = new Map();

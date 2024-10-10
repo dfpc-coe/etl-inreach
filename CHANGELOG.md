@@ -10,6 +10,11 @@
 
 ## Version History
 
+### v3.5.0
+
+- :rocket: Add password support for Garmin KML
+- :arrow_up: Update all deps
+
 ### v3.4.1
 
 - :arrow_up: Remove Legacy ESLint
