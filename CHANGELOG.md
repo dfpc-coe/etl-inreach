@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.6.0
+
+- :tada: Start to sketch out WebHook Support
+
 ### v3.5.0
 
 - :rocket: Add password support for Garmin KML
