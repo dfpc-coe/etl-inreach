@@ -1,6 +1,6 @@
-import fs from 'node:fs'
 import moment from 'moment';
 import type { InputFeatureCollection, InputFeature } from '@tak-ps/etl';
+import Schema from '@openaddresses/batch-schema';
 import { Static, Type, TSchema } from '@sinclair/typebox';
 import xml2js from 'xml2js';
 import ETL, { Event, SchemaType, handler as internal, local, InvocationType } from '@tak-ps/etl';
@@ -16,11 +16,11 @@ export default class Task extends ETL {
     static invocation = [ InvocationType.Webhook, InvocationType.Schedule ];
 
     static webhooks(schema: Schema) {
-        schema.any('/', {
+        schema.post('/', {
             name: 'Incoming Webhook',
             group: 'Default',
             description: 'Get an Everywhere Hub InReach Update',
-            req: Type.Any(),
+            body: Type.Any(),
             res: Type.Object({
                 status: Type.Number(),
                 message: Type.String()
@@ -28,7 +28,7 @@ export default class Task extends ETL {
         }, (req, res) => {
             console.error(req.body);
 
-            return res.json({
+            res.json({
                 status: 200,
                 message: 'Received'
             });

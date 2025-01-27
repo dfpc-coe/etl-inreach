@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.6.1
+
+- :bug: Fix TS Build Errors
+
 ### v3.6.0
 
 - :tada: Start to sketch out WebHook Support
