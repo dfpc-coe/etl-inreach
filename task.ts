@@ -1,8 +1,9 @@
+import fs from 'node:fs'
 import moment from 'moment';
 import type { InputFeatureCollection, InputFeature } from '@tak-ps/etl';
 import { Static, Type, TSchema } from '@sinclair/typebox';
 import xml2js from 'xml2js';
-import ETL, { Event, SchemaType, handler as internal, local } from '@tak-ps/etl';
+import ETL, { Event, SchemaType, handler as internal, local, InvocationType } from '@tak-ps/etl';
 
 export interface Share {
     ShareId: string;
@@ -12,6 +13,28 @@ export interface Share {
 
 export default class Task extends ETL {
     static name = 'etl-inreach'
+    static invocation = [ InvocationType.Webhook, InvocationType.Schedule ];
+
+    static webhooks(schema: Schema) {
+        schema.any('/', {
+            name: 'Incoming Webhook',
+            group: 'Default',
+            description: 'Get an Everywhere Hub InReach Update',
+            req: Type.Any(),
+            res: Type.Object({
+                status: Type.Number(),
+                message: Type.String()
+            })
+        }, (req, res) => {
+            console.error(req.body);
+
+            return res.json({
+                status: 200,
+                message: 'Received'
+            });
+        })
+    }
+
 
     async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
         if (type === SchemaType.Input) {
