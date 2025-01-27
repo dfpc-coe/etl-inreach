@@ -1,8 +1,8 @@
 import moment from 'moment';
-import { FeatureCollection, Feature, Geometry } from 'geojson';
-import { Type, TSchema } from '@sinclair/typebox';
+import type { InputFeatureCollection, InputFeature } from '@tak-ps/etl';
+import { Static, Type, TSchema } from '@sinclair/typebox';
 import xml2js from 'xml2js';
-import ETL, { Event, SchemaType, handler as internal, local, env } from '@tak-ps/etl';
+import ETL, { Event, SchemaType, handler as internal, local } from '@tak-ps/etl';
 
 export interface Share {
     ShareId: string;
@@ -11,6 +11,8 @@ export interface Share {
 }
 
 export default class Task extends ETL {
+    static name = 'etl-inreach'
+
     async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
         if (type === SchemaType.Input) {
             return Type.Object({
@@ -49,9 +51,9 @@ export default class Task extends ETL {
         if (!layer.environment.INREACH_MAP_SHARES) throw new Error('No INREACH_MAP_SHARES Provided');
         if (!Array.isArray(layer.environment.INREACH_MAP_SHARES)) throw new Error('INREACH_MAP_SHARES must be an array');
 
-        const obtains: Array<Promise<Feature[]>> = [];
+        const obtains: Array<Promise<Static<typeof InputFeature>[]>> = [];
         for (const share of layer.environment.INREACH_MAP_SHARES) {
-            obtains.push((async (share: Share): Promise<Feature[]> => {
+            obtains.push((async (share: Share): Promise<Static<typeof InputFeature>[]> => {
                 try {
                     if (share.ShareId.startsWith('https://')) {
                         share.ShareId = new URL(share.ShareId).pathname.replace(/^\//, '');
@@ -76,8 +78,8 @@ export default class Task extends ETL {
                 const kmlres = await fetch(url, { headers });
                 const body = await kmlres.text();
 
-                const featuresmap: Map<string, Feature> = new Map();
-                const features: Feature[] = [];
+                const featuresmap: Map<string, Static<typeof InputFeature>> = new Map();
+                const features: Static<typeof InputFeature>[] = [];
 
                 if (!body.trim()) return features;
 
@@ -98,15 +100,15 @@ export default class Task extends ETL {
                         extended[ext.$.name] = ext.value[0];
                     }
 
-                    const feat: Feature<Geometry, { [name: string]: any; }> = {
+                    const feat: Static<typeof InputFeature> = {
                         id: `inreach-${share.CallSign}`,
                         type: 'Feature',
                         properties: {
                             course: Number(extended['Course'].replace(/\s.*/, '')),
                             speed: Number(extended['Velocity'].replace(/\s.*/, '')) * 0.277778, //km/h => m/s
                             callsign: share.CallSign,
-                            time: new Date(placemark.TimeStamp[0].when[0]),
-                            start: new Date(placemark.TimeStamp[0].when[0]),
+                            time: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
+                            start: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
                             metadata: {
                                 inreachId: extended['Id'],
                                 inreachName: extended['Name'],
@@ -143,7 +145,7 @@ export default class Task extends ETL {
             })(share))
         }
 
-        const fc: FeatureCollection = {
+        const fc: Static<typeof InputFeatureCollection> = {
             type: 'FeatureCollection',
             features: []
         }
@@ -157,8 +159,7 @@ export default class Task extends ETL {
     }
 }
 
-env(import.meta.url)
-await local(new Task(), import.meta.url);
+await local(new Task(import.meta.url), import.meta.url);
 export async function handler(event: Event = {}) {
-    return await internal(new Task(), event);
+    return await internal(new Task(import.meta.url), event);
 }
