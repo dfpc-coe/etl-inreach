@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.7.1
+
+- :rocket: Handle errors and return status code
+
 ### v3.7.0
 
 - :rocket: Add strong types & submission of Webhook CoTs

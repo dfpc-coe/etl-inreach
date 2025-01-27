@@ -20,6 +20,7 @@
         "typescript-eslint": "^8.0.0"
     },
     "dependencies": {
+        "@openaddresses/batch-error": "^2.9.0",
         "@sinclair/typebox": "^0.34.0",
         "@tak-ps/etl": "^6.8.1",
         "moment": "^2.29.4",

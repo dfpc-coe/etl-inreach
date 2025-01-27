@@ -1,5 +1,6 @@
 import moment from 'moment';
 import type { InputFeatureCollection, InputFeature } from '@tak-ps/etl';
+import Err from '@openaddresses/batch-error';
 import Schema from '@openaddresses/batch-schema';
 import { Static, Type, TSchema } from '@sinclair/typebox';
 import xml2js from 'xml2js';
@@ -65,35 +66,39 @@ export default class Task extends ETL {
                 message: Type.String()
             })
         }, async (req, res) => {
-            await task.submit({
-                type: 'FeatureCollection',
-                features: [{
-                    id: `inreach-${req.body.deviceId}`,
-                    type: 'Feature',
-                    properties: {
-                        course: req.body.trackPoint.direction,
-                        callsign: req.body.alias,
-                        time: new Date(req.body.trackPoint.time).toISOString(),
-                        start: new Date(req.body.trackPoint.time).toISOString(),
-                        metadata: {
-                            inreachId: req.body.deviceId,
-                            inreachName: req.body.name,
-                            inreachDeviceType: req.body.deviceType,
-                            inreachDeviceId: req.body.deviceId,
-                            inreachReceive: new Date(req.body.trackPoint.time).toISOString()
+            try {
+                await task.submit({
+                    type: 'FeatureCollection',
+                    features: [{
+                        id: `inreach-${req.body.deviceId}`,
+                        type: 'Feature',
+                        properties: {
+                            course: req.body.trackPoint.direction,
+                            callsign: req.body.alias,
+                            time: new Date(req.body.trackPoint.time).toISOString(),
+                            start: new Date(req.body.trackPoint.time).toISOString(),
+                            metadata: {
+                                inreachId: req.body.deviceId,
+                                inreachName: req.body.name,
+                                inreachDeviceType: req.body.deviceType,
+                                inreachDeviceId: req.body.deviceId,
+                                inreachReceive: new Date(req.body.trackPoint.time).toISOString()
+                            }
+                        },
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [ req.body.trackPoint.point.x, req.body.trackPoint.point.y ]
                         }
-                    },
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [ req.body.trackPoint.point.x, req.body.trackPoint.point.y ]
-                    }
-                }]
-            });
+                    }]
+                });
 
-            res.json({
-                status: 200,
-                message: 'Received'
-            });
+                res.json({
+                    status: 200,
+                    message: 'Received'
+                });
+            } catch (err) {
+                Err.respond(err, res);
+            }
         })
     }
 
