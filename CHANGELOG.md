@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.6.3
+
+- :arrow_up: Update ETL-Base
+
 ### v3.6.2
 
 - :arrow_up: Update ETL-Base

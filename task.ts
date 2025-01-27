@@ -183,6 +183,6 @@ export default class Task extends ETL {
 }
 
 await local(new Task(import.meta.url), import.meta.url);
-export async function handler(event: Event = {}) {
-    return await internal(new Task(import.meta.url), event);
+export async function handler(event: Event = {}, context?: unknown) {
+    return await internal(new Task(import.meta.url), event, context);
 }
