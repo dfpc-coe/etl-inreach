@@ -11,25 +11,84 @@ export interface Share {
     Password?: string;
 }
 
+const EverywhereItem = Type.Object({
+    converterId: Type.String(),
+    deviceId: Type.Integer(),
+    teamId: Type.Integer(),
+    trackPoint: Type.Object({
+        direction: Type.Integer(),
+        inboundMessageId: Type.Integer(),
+        point: Type.Object({
+            x: Type.Number(),
+            y: Type.Number()
+        }),
+        time: Type.Integer(),
+    }),
+    source: Type.String(),
+    entityId: Type.Integer(),
+    deviceType: Type.String(),
+    name: Type.String(),
+    alias: Type.String(),
+    oemSerial: Type.String()
+})
+
+const Input = Type.Object({
+    'INREACH_MAP_SHARES': Type.Array(Type.Object({
+        ShareId: Type.String({ description: 'Garmin Inreach Share ID or URL' }),
+        CallSign: Type.Optional(Type.String({ description: 'Human Readable Name of the Operator - Used as the callsign in TAK' })),
+        Password: Type.Optional(Type.String({ description: 'Optional: Garmin Inreach MapShare Password' }))
+    }, {
+        description: 'Inreach Share IDs to pull data from',
+        display: 'table',
+    })),
+    'DEBUG': Type.Boolean({
+        default: false,
+        description: 'Print ADSBX results in logs'
+    })
+})
+
 export default class Task extends ETL {
     static name = 'etl-inreach'
     static invocation = [ InvocationType.Webhook, InvocationType.Schedule ];
 
-    static webhooks(schema: Schema) {
+    static webhooks(schema: Schema, task: Task) {
         schema.post('/:webhookid', {
             name: 'Incoming Webhook',
             group: 'Default',
             description: 'Get an Everywhere Hub InReach Update',
-            body: Type.Any(),
             params: Type.Object({
                 webhookid: Type.String()
             }),
+            body: EverywhereItem,
             res: Type.Object({
                 status: Type.Number(),
                 message: Type.String()
             })
-        }, (req, res) => {
-            console.error(req.body);
+        }, async (req, res) => {
+            await task.submit({
+                type: 'FeatureCollection',
+                features: [{
+                    id: `inreach-${req.body.deviceId}`,
+                    type: 'Feature',
+                    properties: {
+                        course: req.body.trackPoint.direction,
+                        callsign: req.body.alias,
+                        time: new Date(req.body.trackPoint.time).toISOString(),
+                        start: new Date(req.body.trackPoint.time).toISOString(),
+                        metadata: {
+                            inreachId: req.body.deviceId,
+                            inreachName: req.body.name,
+                            inreachDeviceType: req.body.deviceType,
+                            inreachDeviceId: req.body.deviceId,
+                            inreachReceive: new Date(req.body.trackPoint.time).toISOString()
+                        }
+                    },
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [ req.body.trackPoint.point.x, req.body.trackPoint.point.y ]
+                    }
+                }]
+            });
 
             res.json({
                 status: 200,
@@ -41,30 +100,17 @@ export default class Task extends ETL {
 
     async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
         if (type === SchemaType.Input) {
-            return Type.Object({
-                'INREACH_MAP_SHARES': Type.Array(Type.Object({
-                    ShareId: Type.String({ description: 'Garmin Inreach Share ID or URL' }),
-                    CallSign: Type.Optional(Type.String({ description: 'Human Readable Name of the Operator - Used as the callsign in TAK' })),
-                    Password: Type.Optional(Type.String({ description: 'Optional: Garmin Inreach MapShare Password' }))
-                }, {
-                    description: 'Inreach Share IDs to pull data from',
-                    display: 'table',
-                })),
-                'DEBUG': Type.Boolean({
-                    default: false,
-                    description: 'Print ADSBX results in logs'
-                })
-            })
+            return Input;
         } else {
             return Type.Object({
                 inreachId: Type.String(),
                 inreachName: Type.String(),
                 inreachDeviceType: Type.String(),
-                inreachIMEI: Type.String(),
-                inreachIncidentId: Type.String(),
-                inreachValidFix: Type.String(),
-                inreachText: Type.String(),
-                inreachEvent: Type.String(),
+                inreachIMEI: Type.Optional(Type.String()),
+                inreachIncidentId: Type.Optional(Type.String()),
+                inreachValidFix: Type.Optional(Type.String()),
+                inreachText: Type.Optional(Type.String()),
+                inreachEvent: Type.Optional(Type.String()),
                 inreachDeviceId: Type.String(),
                 inreachReceive: Type.String({ format: 'date-time' }),
             })
@@ -72,13 +118,13 @@ export default class Task extends ETL {
     }
 
     async control(): Promise<void> {
-        const layer = await this.fetchLayer();
+        const env = await this.env(Input);
 
-        if (!layer.environment.INREACH_MAP_SHARES) throw new Error('No INREACH_MAP_SHARES Provided');
-        if (!Array.isArray(layer.environment.INREACH_MAP_SHARES)) throw new Error('INREACH_MAP_SHARES must be an array');
+        if (!env.INREACH_MAP_SHARES) throw new Error('No INREACH_MAP_SHARES Provided');
+        if (!Array.isArray(env.INREACH_MAP_SHARES)) throw new Error('INREACH_MAP_SHARES must be an array');
 
         const obtains: Array<Promise<Static<typeof InputFeature>[]>> = [];
-        for (const share of layer.environment.INREACH_MAP_SHARES) {
+        for (const share of env.INREACH_MAP_SHARES) {
             obtains.push((async (share: Share): Promise<Static<typeof InputFeature>[]> => {
                 try {
                     if (share.ShareId.startsWith('https://')) {

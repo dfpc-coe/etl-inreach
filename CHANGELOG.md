@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.7.0
+
+- :rocket: Add strong types & submission of Webhook CoTs
+
 ### v3.6.4
 
 - :bug: Add WebHook ID to Schema Syntax
