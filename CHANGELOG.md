@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.6.4
+
+- :bug: Add WebHook ID to Schema Syntax
+
 ### v3.6.3
 
 - :arrow_up: Update ETL-Base

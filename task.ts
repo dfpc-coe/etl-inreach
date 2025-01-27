@@ -16,11 +16,14 @@ export default class Task extends ETL {
     static invocation = [ InvocationType.Webhook, InvocationType.Schedule ];
 
     static webhooks(schema: Schema) {
-        schema.post('/', {
+        schema.post('/:webhookid', {
             name: 'Incoming Webhook',
             group: 'Default',
             description: 'Get an Everywhere Hub InReach Update',
             body: Type.Any(),
+            params: Type.Object({
+                webhookid: Type.String()
+            }),
             res: Type.Object({
                 status: Type.Number(),
                 message: Type.String()
