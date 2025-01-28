@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.7.3
+
+- :rocket: Switch to IMEI as Id is a message ID and not a device
+
 ### v3.7.2
 
 - :rocket: Use device ID for CoT UID
