@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.7.2
+
+- :rocket: Use device ID for CoT UID
+
 ### v3.7.1
 
 - :rocket: Handle errors and return status code

@@ -178,7 +178,7 @@ export default class Task extends ETL {
                     }
 
                     const feat: Static<typeof InputFeature> = {
-                        id: `inreach-${share.CallSign}`,
+                        id: `inreach-${extended['Id']}`,
                         type: 'Feature',
                         properties: {
                             course: Number(extended['Course'].replace(/\s.*/, '')),
