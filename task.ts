@@ -177,8 +177,9 @@ export default class Task extends ETL {
                         extended[ext.$.name] = ext.value[0];
                     }
 
+                    const id = `inreach-${extended['IMEI']}`;
                     const feat: Static<typeof InputFeature> = {
-                        id: `inreach-${extended['IMEI']}`,
+                        id,
                         type: 'Feature',
                         properties: {
                             course: Number(extended['Course'].replace(/\s.*/, '')),
@@ -186,6 +187,14 @@ export default class Task extends ETL {
                             callsign: share.CallSign,
                             time: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
                             start: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
+                            links: [{
+                                uid: id,
+                                relation: 'r-u',
+                                mime: 'text/html',
+                                url: `https://share.garmin.com/${share.ShareId}`,
+                                remarks: 'Garmin Portal'
+
+                            }],
                             metadata: {
                                 inreachId: extended['Id'],
                                 inreachName: extended['Name'],

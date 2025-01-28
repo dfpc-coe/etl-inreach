@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.8.0
+
+- :rocket: Add MapShare link if available
+
 ### v3.7.3
 
 - :rocket: Switch to IMEI as Id is a message ID and not a device
