@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.9.0
+
+- :rocket: Add incoming/outgoing support
+
 ### v3.8.0
 
 - :rocket: Add MapShare link if available

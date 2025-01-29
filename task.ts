@@ -4,7 +4,7 @@ import Err from '@openaddresses/batch-error';
 import Schema from '@openaddresses/batch-schema';
 import { Static, Type, TSchema } from '@sinclair/typebox';
 import xml2js from 'xml2js';
-import ETL, { Event, SchemaType, handler as internal, local, InvocationType } from '@tak-ps/etl';
+import ETL, { DataFlowType, Event, SchemaType, handler as internal, local, InvocationType } from '@tak-ps/etl';
 
 export interface Share {
     ShareId: string;
@@ -103,22 +103,29 @@ export default class Task extends ETL {
     }
 
 
-    async schema(type: SchemaType = SchemaType.Input): Promise<TSchema> {
-        if (type === SchemaType.Input) {
-            return Input;
+    async schema(
+        type: SchemaType = SchemaType.Input,
+        flow: DataFlowType = DataFlowType.Incoming
+    ): Promise<TSchema> {
+        if (flow === DataFlowType.Incoming) {
+            if (type === SchemaType.Input) {
+                return Input;
+            } else {
+                return Type.Object({
+                    inreachId: Type.String(),
+                    inreachName: Type.String(),
+                    inreachDeviceType: Type.String(),
+                    inreachIMEI: Type.Optional(Type.String()),
+                    inreachIncidentId: Type.Optional(Type.String()),
+                    inreachValidFix: Type.Optional(Type.String()),
+                    inreachText: Type.Optional(Type.String()),
+                    inreachEvent: Type.Optional(Type.String()),
+                    inreachDeviceId: Type.String(),
+                    inreachReceive: Type.String({ format: 'date-time' }),
+                })
+            }
         } else {
-            return Type.Object({
-                inreachId: Type.String(),
-                inreachName: Type.String(),
-                inreachDeviceType: Type.String(),
-                inreachIMEI: Type.Optional(Type.String()),
-                inreachIncidentId: Type.Optional(Type.String()),
-                inreachValidFix: Type.Optional(Type.String()),
-                inreachText: Type.Optional(Type.String()),
-                inreachEvent: Type.Optional(Type.String()),
-                inreachDeviceId: Type.String(),
-                inreachReceive: Type.String({ format: 'date-time' }),
-            })
+            return Type.Object({});
         }
     }
 
