@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v3.10.0
+
+- :tada: Increase Capabilities API support
+
 ### v3.9.0
 
 - :rocket: Add incoming/outgoing support

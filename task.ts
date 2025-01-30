@@ -50,6 +50,7 @@ const Input = Type.Object({
 
 export default class Task extends ETL {
     static name = 'etl-inreach'
+    static flow = [ DataFlowType.Incoming ];
     static invocation = [ InvocationType.Webhook, InvocationType.Schedule ];
 
     static webhooks(schema: Schema, task: Task) {
@@ -101,7 +102,6 @@ export default class Task extends ETL {
             }
         })
     }
-
 
     async schema(
         type: SchemaType = SchemaType.Input,
