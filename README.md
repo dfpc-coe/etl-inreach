@@ -1,6 +1,6 @@
 <h1 align='center'>ETL-InReach</h1>
 
-<p align='center'>Bring InReach Location data into the TAK System</p>
+<p align='center'>Bring Garmin InReach or EverywhereHub Location data into the TAK System</p>
 
 ## Development
 
