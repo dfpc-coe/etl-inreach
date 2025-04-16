@@ -68,11 +68,7 @@ export default class Task extends ETL {
             })
         }, async (req, res) => {
             try {
-                const env = await this.env(Input);
-
-                if (env.Debug) {
-                    console.error('Webhook Body: ', JSON.stringify(req.body))
-                }
+                console.error('Webhook Body: ', JSON.stringify(req.body))
 
                 await task.submit({
                     type: 'FeatureCollection',
