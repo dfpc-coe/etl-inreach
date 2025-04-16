@@ -100,6 +100,7 @@ export default class Task extends ETL {
                     message: 'Received'
                 });
             } catch (err) {
+                console.error(err);
                 Err.respond(err, res);
             }
         })
