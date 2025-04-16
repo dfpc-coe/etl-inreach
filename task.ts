@@ -44,7 +44,7 @@ const Input = Type.Object({
     })),
     'DEBUG': Type.Boolean({
         default: false,
-        description: 'Print ADSBX results in logs'
+        description: 'Print debug info in logs'
     })
 })
 
@@ -68,6 +68,12 @@ export default class Task extends ETL {
             })
         }, async (req, res) => {
             try {
+                const env = await this.env(Input);
+
+                if (env.Debug) {
+                    console.error('Webhook Body: ', JSON.stringify(req.body))
+                }
+
                 await task.submit({
                     type: 'FeatureCollection',
                     features: [{

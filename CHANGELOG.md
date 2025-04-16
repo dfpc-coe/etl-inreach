@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.2.0 - 2024-04-16
+
+- :rocket: Add additional debug options
+
 ### v4.1.0 - 2024-04-16
 
 - :bug: `Alias` is an optional field
