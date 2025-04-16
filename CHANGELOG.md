@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.2.1 - 2024-04-16
+
+- :bug: Temp Debug
+
 ### v4.2.0 - 2024-04-16
 
 - :rocket: Add additional debug options
