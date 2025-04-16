@@ -29,7 +29,7 @@ const EverywhereItem = Type.Object({
     entityId: Type.Integer(),
     deviceType: Type.String(),
     name: Type.String(),
-    alias: Type.String(),
+    alias: Type.Optional(Type.String()),
     oemSerial: Type.String()
 })
 
@@ -75,7 +75,7 @@ export default class Task extends ETL {
                         type: 'Feature',
                         properties: {
                             course: req.body.trackPoint.direction,
-                            callsign: req.body.alias,
+                            callsign: req.body.alias || req.body.name,
                             time: new Date(req.body.trackPoint.time).toISOString(),
                             start: new Date(req.body.trackPoint.time).toISOString(),
                             metadata: {

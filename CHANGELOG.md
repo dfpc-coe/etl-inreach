@@ -10,6 +10,11 @@
 
 ## Version History
 
+### v4.1.0 - 2024-04-16
+
+- :bug: `Alias` is an optional field
+- :arrow_up: Update all core deps
+
 ### v4.0.0
 
 - :tada: Update to `CloudTAK@v6`
