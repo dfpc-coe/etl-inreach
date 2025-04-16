@@ -68,8 +68,6 @@ export default class Task extends ETL {
             })
         }, async (req, res) => {
             try {
-                console.error('Webhook Body: ', JSON.stringify(req.body))
-
                 await task.submit({
                     type: 'FeatureCollection',
                     features: [{
@@ -100,7 +98,6 @@ export default class Task extends ETL {
                     message: 'Received'
                 });
             } catch (err) {
-                console.error(err);
                 Err.respond(err, res);
             }
         })

@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.3.0 - 2024-04-16
+
+- :tada: Allow running locally
+
 ### v4.2.2 - 2024-04-16
 
 - :bug: Temp Debug
