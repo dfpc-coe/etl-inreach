@@ -2,9 +2,11 @@ import moment from 'moment';
 import type { InputFeatureCollection, InputFeature } from '@tak-ps/etl';
 import Err from '@openaddresses/batch-error';
 import Schema from '@openaddresses/batch-schema';
-import { Static, Type, TSchema } from '@sinclair/typebox';
+import type { Static, TSchema } from '@sinclair/typebox';
+import { Type } from '@sinclair/typebox';
 import xml2js from 'xml2js';
-import ETL, { DataFlowType, Event, SchemaType, handler as internal, local, InvocationType } from '@tak-ps/etl';
+import ETL, { DataFlowType, SchemaType, handler as internal, local, InvocationType } from '@tak-ps/etl';
+import type { Event } from '@tak-ps/etl';
 
 export interface Share {
     ShareId: string;
@@ -53,7 +55,10 @@ export default class Task extends ETL {
     static flow = [ DataFlowType.Incoming ];
     static invocation = [ InvocationType.Webhook, InvocationType.Schedule ];
 
-    static webhooks(schema: Schema, task: Task) {
+    static async webhooks(
+        schema: Schema,
+        task: Task
+    ): Promise<void> {
         schema.post('/:webhookid', {
             name: 'Incoming Webhook',
             group: 'Default',

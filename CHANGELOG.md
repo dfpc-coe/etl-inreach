@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.4.0 - 2024-04-17
+
+- :rocket: Specify types so node Strip Types works
+
 ### v4.3.0 - 2024-04-16
 
 - :tada: Allow running locally
