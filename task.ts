@@ -1,4 +1,3 @@
-import moment from 'moment';
 import type { InputFeatureCollection, InputFeature } from '@tak-ps/etl';
 import Err from '@openaddresses/batch-error';
 import Schema from '@openaddresses/batch-schema';
@@ -157,7 +156,10 @@ export default class Task extends ETL {
                 console.log(`ok - requesting ${share.ShareId} ${share.CallSign ? `(${share.CallSign})` : ''}`);
 
                 const url = new URL(`/feed/Share/${share.ShareId}`, 'https://explore.garmin.com')
-                url.searchParams.append('d1', moment().subtract(30, 'minutes').utc().format());
+
+                const d1 = new Date();
+                d1.setMinutes(d1.getMinutes() - 30);
+                url.searchParams.append('d1', d1.toISOString());
 
                 const headers = new Headers();
                 if (share.Password) {
@@ -229,7 +231,7 @@ export default class Task extends ETL {
                     if (featuresmap.has(String(feat.id))) {
                         const existing = featuresmap.get(String(feat.id));
 
-                        if (moment(feat.properties.time).isAfter(existing.properties.time)) {
+                        if (new Date(feat.properties.time) > new Date(existing.properties.time)) {
                             featuresmap.set(String(feat.id), feat);
                         }
                     } else {
@@ -258,6 +260,12 @@ export default class Task extends ETL {
 }
 
 await local(new Task(import.meta.url), import.meta.url);
+
 export async function handler(event: Event = {}, context?: object) {
-    return await internal(new Task(import.meta.url), event, context);
+    return await internal(new Task(import.meta.url, {
+        logging: {
+            event: process.env.DEBUG ? true : false,
+            webhooks: true
+        }
+    }), event, context);
 }

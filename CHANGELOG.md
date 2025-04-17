@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.5.0 - 2024-04-17
+
+- :rocket: Additional Debug options
+
 ### v4.4.0 - 2024-04-17
 
 - :rocket: Specify types so node Strip Types works
