@@ -149,7 +149,7 @@ export default class Task extends ETL {
                         share.ShareId = share.ShareId.replace('share.garmin.com/', '');
                     }
                     if (!share.CallSign) share.CallSign = share.ShareId;
-                    console.log(`ok - requesting ${share.ShareId} ${share.CallSign ? `(${share.CallSign})` : ''}`);
+                    console.log(`ok - requesting https://share.garmin.com/${share.ShareId} ${share.CallSign ? `(${share.CallSign})` : ''}`);
 
                     const url = new URL(`/feed/Share/${share.ShareId}`, 'https://explore.garmin.com')
 

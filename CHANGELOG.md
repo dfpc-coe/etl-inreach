@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.7.1 - 2024-05-21
+
+- :rocket: Log Human UI URL
+
 ### v4.7.0 - 2024-05-21
 
 - :rocket: Increased fault tolerance
