@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.7.0 - 2024-05-21
+
+- :rocket: Increased fault tolerance
+
 ### v4.6.0 - 2024-04-17
 
 - :rocket: Support Express@5 in ETL

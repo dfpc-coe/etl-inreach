@@ -148,100 +148,99 @@ export default class Task extends ETL {
                     } else if (share.ShareId.startsWith('share.garmin.com')) {
                         share.ShareId = share.ShareId.replace('share.garmin.com/', '');
                     }
-                } catch (err) {
-                    console.error(err);
-                }
+                    if (!share.CallSign) share.CallSign = share.ShareId;
+                    console.log(`ok - requesting ${share.ShareId} ${share.CallSign ? `(${share.CallSign})` : ''}`);
 
-                if (!share.CallSign) share.CallSign = share.ShareId;
-                console.log(`ok - requesting ${share.ShareId} ${share.CallSign ? `(${share.CallSign})` : ''}`);
+                    const url = new URL(`/feed/Share/${share.ShareId}`, 'https://explore.garmin.com')
 
-                const url = new URL(`/feed/Share/${share.ShareId}`, 'https://explore.garmin.com')
+                    const d1 = new Date();
+                    d1.setMinutes(d1.getMinutes() - 30);
+                    url.searchParams.append('d1', d1.toISOString());
 
-                const d1 = new Date();
-                d1.setMinutes(d1.getMinutes() - 30);
-                url.searchParams.append('d1', d1.toISOString());
-
-                const headers = new Headers();
-                if (share.Password) {
-                    headers.append('Authorization', 'Basic ' + Buffer.from(":" + share.Password).toString('base64'));
-                }
-
-                const kmlres = await fetch(url, { headers });
-                const body = await kmlres.text();
-
-                const featuresmap: Map<string, Static<typeof InputFeature>> = new Map();
-                const features: Static<typeof InputFeature>[] = [];
-
-                if (!body.trim()) return features;
-
-                const xml = await xml2js.parseStringPromise(body);
-                if (!xml.kml || !xml.kml.Document) throw new Error('XML Parse Error: Document not found');
-                if (!xml.kml.Document[0] || !xml.kml.Document[0].Folder || !xml.kml.Document[0].Folder[0]) return;
-
-                console.log(`ok - ${share.ShareId} has ${xml.kml.Document[0].Folder[0].Placemark.length} locations`);
-                for (const placemark of xml.kml.Document[0].Folder[0].Placemark) {
-                    if (!placemark.Point || !placemark.Point[0]) continue;
-
-                    const coords = placemark.Point[0].coordinates[0].split(',').map((ele: string) => {
-                        return parseFloat(ele);
-                    });
-
-                    const extended: Record<string, string> = {};
-                    for (const ext of placemark.ExtendedData[0].Data) {
-                        extended[ext.$.name] = ext.value[0];
+                    const headers = new Headers();
+                    if (share.Password) {
+                        headers.append('Authorization', 'Basic ' + Buffer.from(":" + share.Password).toString('base64'));
                     }
 
-                    const id = `inreach-${extended['IMEI']}`;
-                    const feat: Static<typeof InputFeature> = {
-                        id,
-                        type: 'Feature',
-                        properties: {
-                            course: Number(extended['Course'].replace(/\s.*/, '')),
-                            speed: Number(extended['Velocity'].replace(/\s.*/, '')) * 0.277778, //km/h => m/s
-                            callsign: share.CallSign,
-                            time: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
-                            start: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
-                            links: [{
-                                uid: id,
-                                relation: 'r-u',
-                                mime: 'text/html',
-                                url: `https://share.garmin.com/${share.ShareId}`,
-                                remarks: 'Garmin Portal'
+                    const kmlres = await fetch(url, { headers });
+                    const body = await kmlres.text();
 
-                            }],
-                            metadata: {
-                                inreachId: extended['Id'],
-                                inreachName: extended['Name'],
-                                inreachDeviceType: extended['Device Type'],
-                                inreachIMEI: extended['IMEI'],
-                                inreachIncidentId: extended['Incident Id'],
-                                inreachValidFix: extended['Valid GPS Fix'],
-                                inreachText: extended['Text'],
-                                inreachEvent: extended['Event'],
-                                inreachDeviceId: extended['Device Identifier'],
-                                inreachReceive: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
-                            }
-                        },
-                        geometry: {
-                            type: 'Point',
-                            coordinates: coords
+                    const featuresmap: Map<string, Static<typeof InputFeature>> = new Map();
+                    const features: Static<typeof InputFeature>[] = [];
+
+                    if (!body.trim()) return features;
+
+                    const xml = await xml2js.parseStringPromise(body);
+                    if (!xml.kml || !xml.kml.Document) throw new Error('XML Parse Error: Document not found');
+                    if (!xml.kml.Document[0] || !xml.kml.Document[0].Folder || !xml.kml.Document[0].Folder[0]) return;
+
+                    console.log(`ok - ${share.ShareId} has ${xml.kml.Document[0].Folder[0].Placemark.length} locations`);
+                    for (const placemark of xml.kml.Document[0].Folder[0].Placemark) {
+                        if (!placemark.Point || !placemark.Point[0]) continue;
+
+                        const coords = placemark.Point[0].coordinates[0].split(',').map((ele: string) => {
+                            return parseFloat(ele);
+                        });
+
+                        const extended: Record<string, string> = {};
+                        for (const ext of placemark.ExtendedData[0].Data) {
+                            extended[ext.$.name] = ext.value[0];
                         }
-                    };
 
-                    if (featuresmap.has(String(feat.id))) {
-                        const existing = featuresmap.get(String(feat.id));
+                        const id = `inreach-${extended['IMEI']}`;
+                        const feat: Static<typeof InputFeature> = {
+                            id,
+                            type: 'Feature',
+                            properties: {
+                                course: Number(extended['Course'].replace(/\s.*/, '')),
+                                speed: Number(extended['Velocity'].replace(/\s.*/, '')) * 0.277778, //km/h => m/s
+                                callsign: share.CallSign,
+                                time: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
+                                start: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
+                                links: [{
+                                    uid: id,
+                                    relation: 'r-u',
+                                    mime: 'text/html',
+                                    url: `https://share.garmin.com/${share.ShareId}`,
+                                    remarks: 'Garmin Portal'
 
-                        if (new Date(feat.properties.time) > new Date(existing.properties.time)) {
+                                }],
+                                metadata: {
+                                    inreachId: extended['Id'],
+                                    inreachName: extended['Name'],
+                                    inreachDeviceType: extended['Device Type'],
+                                    inreachIMEI: extended['IMEI'],
+                                    inreachIncidentId: extended['Incident Id'],
+                                    inreachValidFix: extended['Valid GPS Fix'],
+                                    inreachText: extended['Text'],
+                                    inreachEvent: extended['Event'],
+                                    inreachDeviceId: extended['Device Identifier'],
+                                    inreachReceive: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
+                                }
+                            },
+                            geometry: {
+                                type: 'Point',
+                                coordinates: coords
+                            }
+                        };
+
+                        if (featuresmap.has(String(feat.id))) {
+                            const existing = featuresmap.get(String(feat.id));
+
+                            if (new Date(feat.properties.time) > new Date(existing.properties.time)) {
+                                featuresmap.set(String(feat.id), feat);
+                            }
+                        } else {
                             featuresmap.set(String(feat.id), feat);
                         }
-                    } else {
-                        featuresmap.set(String(feat.id), feat);
                     }
+
+                    features.push(...Array.from(featuresmap.values()))
+
+                    return features;
+                } catch (err) {
+                    console.error(`FEED: ${share.CallSign}: ${err}`);
                 }
-
-                features.push(...Array.from(featuresmap.values()))
-
-                return features;
             })(share))
         }
 
