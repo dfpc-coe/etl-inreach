@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.9.0 - 2024-06-16
+
+- :rocket: Update incoming Webhooks URL
+
 ### v4.8.0 - 2024-05-21
 
 - :rocket: Update to use new Share URL

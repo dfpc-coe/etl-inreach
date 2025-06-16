@@ -18,20 +18,25 @@ const EverywhereItem = Type.Object({
     deviceId: Type.Integer(),
     teamId: Type.Integer(),
     trackPoint: Type.Object({
+        time: Type.Integer(),
         direction: Type.Integer(),
         inboundMessageId: Type.Integer(),
+        alertsList: Type.Optional(Type.Array(Type.Object({
+            id: Type.Integer(),
+            description: Type.String(),
+            type: Type.String()
+        }))),
+        isEmergency: Type.Optional(Type.Boolean()),
         point: Type.Object({
             x: Type.Number(),
             y: Type.Number()
         }),
-        time: Type.Integer(),
     }),
     source: Type.String(),
     entityId: Type.Integer(),
     deviceType: Type.String(),
     name: Type.String(),
-    alias: Type.Optional(Type.String()),
-    oemSerial: Type.String()
+    alias: Type.Optional(Type.String())
 })
 
 const Input = Type.Object({
