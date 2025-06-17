@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v4.10.0 - 2024-06-17
+
+- :rocket: Introduce debug options for ETL Webhooks
+
 ### v4.9.0 - 2024-06-16
 
 - :rocket: Update incoming Webhooks URL

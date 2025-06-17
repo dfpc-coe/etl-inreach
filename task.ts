@@ -21,12 +21,13 @@ const EverywhereItem = Type.Object({
         time: Type.Integer(),
         direction: Type.Integer(),
         inboundMessageId: Type.Integer(),
+        isEmergency: Type.Optional(Type.Boolean()),
+        source: Type.Optional(Type.String()),
         alertsList: Type.Optional(Type.Array(Type.Object({
             id: Type.Integer(),
             description: Type.String(),
             type: Type.String()
         }))),
-        isEmergency: Type.Optional(Type.Boolean()),
         point: Type.Object({
             x: Type.Number(),
             y: Type.Number()
@@ -63,6 +64,8 @@ export default class Task extends ETL {
         schema: Schema,
         task: Task
     ): Promise<void> {
+        const env = await task.env(Input);
+
         schema.post('/:webhookid', {
             name: 'Incoming Webhook',
             group: 'Default',
@@ -70,12 +73,16 @@ export default class Task extends ETL {
             params: Type.Object({
                 webhookid: Type.String()
             }),
-            body: EverywhereItem,
+            body: env.DEBUG ? Type.Any() : EverywhereItem,
             res: Type.Object({
                 status: Type.Number(),
                 message: Type.String()
             })
         }, async (req, res) => {
+            if (env.DEBUG) {
+                console.error(`DEBUG Webhook: ${req.params.webhookid} - ${JSON.stringify(req.body, null, 4)}`);
+            }
+
             try {
                 await task.submit({
                     type: 'FeatureCollection',
