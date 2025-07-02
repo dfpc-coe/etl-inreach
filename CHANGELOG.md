@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v5.0.0 - 2024-07-02
+
+- :tada: Split EverywhereHub ETL into its own package
+
 ### v4.10.0 - 2024-06-17
 
 - :rocket: Introduce debug options for ETL Webhooks

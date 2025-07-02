@@ -1,6 +1,4 @@
 import type { InputFeatureCollection, InputFeature } from '@tak-ps/etl';
-import Err from '@openaddresses/batch-error';
-import Schema from '@openaddresses/batch-schema';
 import type { Static, TSchema } from '@sinclair/typebox';
 import { Type } from '@sinclair/typebox';
 import xml2js from 'xml2js';
@@ -12,33 +10,6 @@ export interface Share {
     CallSign?: string;
     Password?: string;
 }
-
-const EverywhereItem = Type.Object({
-    converterId: Type.String(),
-    deviceId: Type.Integer(),
-    teamId: Type.Integer(),
-    trackPoint: Type.Object({
-        time: Type.Integer(),
-        direction: Type.Integer(),
-        inboundMessageId: Type.Integer(),
-        isEmergency: Type.Optional(Type.Boolean()),
-        source: Type.Optional(Type.String()),
-        alertsList: Type.Optional(Type.Array(Type.Object({
-            id: Type.Integer(),
-            description: Type.String(),
-            type: Type.String()
-        }))),
-        point: Type.Object({
-            x: Type.Number(),
-            y: Type.Number()
-        }),
-    }),
-    source: Type.String(),
-    entityId: Type.Integer(),
-    deviceType: Type.String(),
-    name: Type.String(),
-    alias: Type.Optional(Type.String())
-})
 
 const Input = Type.Object({
     'INREACH_MAP_SHARES': Type.Array(Type.Object({
@@ -58,66 +29,7 @@ const Input = Type.Object({
 export default class Task extends ETL {
     static name = 'etl-inreach'
     static flow = [ DataFlowType.Incoming ];
-    static invocation = [ InvocationType.Webhook, InvocationType.Schedule ];
-
-    static async webhooks(
-        schema: Schema,
-        task: Task
-    ): Promise<void> {
-        const env = await task.env(Input);
-
-        schema.post('/:webhookid', {
-            name: 'Incoming Webhook',
-            group: 'Default',
-            description: 'Get an Everywhere Hub InReach Update',
-            params: Type.Object({
-                webhookid: Type.String()
-            }),
-            body: env.DEBUG ? Type.Any() : EverywhereItem,
-            res: Type.Object({
-                status: Type.Number(),
-                message: Type.String()
-            })
-        }, async (req, res) => {
-            if (env.DEBUG) {
-                console.error(`DEBUG Webhook: ${req.params.webhookid} - ${JSON.stringify(req.body, null, 4)}`);
-            }
-
-            try {
-                await task.submit({
-                    type: 'FeatureCollection',
-                    features: [{
-                        id: `inreach-${req.body.deviceId}`,
-                        type: 'Feature',
-                        properties: {
-                            course: req.body.trackPoint.direction,
-                            callsign: req.body.alias || req.body.name,
-                            time: new Date(req.body.trackPoint.time).toISOString(),
-                            start: new Date(req.body.trackPoint.time).toISOString(),
-                            metadata: {
-                                inreachId: req.body.deviceId,
-                                inreachName: req.body.name,
-                                inreachDeviceType: req.body.deviceType,
-                                inreachDeviceId: req.body.deviceId,
-                                inreachReceive: new Date(req.body.trackPoint.time).toISOString()
-                            }
-                        },
-                        geometry: {
-                            type: 'Point',
-                            coordinates: [ req.body.trackPoint.point.x, req.body.trackPoint.point.y ]
-                        }
-                    }]
-                });
-
-                res.json({
-                    status: 200,
-                    message: 'Received'
-                });
-            } catch (err) {
-                Err.respond(err, res);
-            }
-        })
-    }
+    static invocation = [ InvocationType.Schedule ];
 
     async schema(
         type: SchemaType = SchemaType.Input,
@@ -276,7 +188,6 @@ export async function handler(event: Event = {}, context?: object) {
     return await internal(new Task(import.meta.url, {
         logging: {
             event: process.env.DEBUG ? true : false,
-            webhooks: true
         }
     }), event, context);
 }
