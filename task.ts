@@ -9,17 +9,55 @@ export interface Share {
     ShareId: string;
     CallSign?: string;
     Password?: string;
+    CoTType?: string;
 }
 
 const Input = Type.Object({
     'INREACH_MAP_SHARES': Type.Array(Type.Object({
         ShareId: Type.String({ description: 'Garmin Inreach Share ID or URL' }),
         CallSign: Type.Optional(Type.String({ description: 'Human Readable Name of the Operator - Used as the callsign in TAK' })),
-        Password: Type.Optional(Type.String({ description: 'Optional: Garmin Inreach MapShare Password' }))
+        Password: Type.Optional(Type.String({ description: 'Optional: Garmin Inreach MapShare Password' })),
+        CoTType: Type.Optional(Type.String({ description: 'CoT type override', default: 'a-f-G' }))
     }, {
         description: 'Inreach Share IDs to pull data from',
         display: 'table',
     })),
+    'TEST_MODE': Type.Boolean({
+        default: false,
+        description: 'Enable test mode with simulated devices'
+    }),
+    'TEST_DEVICES': Type.Array(Type.Object({
+        IMEI: Type.String({ description: 'Simulated device IMEI' }),
+        Name: Type.String({ description: 'Device operator name' }),
+        DeviceType: Type.String({ 
+            description: 'Device model',
+            default: 'inReach Mini',
+            enum: ['inReach Mini', 'inReach Explorer', 'inReach SE+', 'inReach Messenger']
+        }),
+        StartLat: Type.Number({ description: 'Starting latitude' }),
+        StartLon: Type.Number({ description: 'Starting longitude' }),
+        MovementPattern: Type.String({
+            description: 'Movement simulation pattern',
+            default: 'stationary',
+            enum: ['stationary', 'random_walk', 'circular', 'linear_path']
+        }),
+        Speed: Type.Number({ 
+            description: 'Movement speed in km/h',
+            default: 5
+        }),
+        EmergencyMode: Type.Boolean({
+            description: 'Simulate emergency activation',
+            default: false
+        }),
+        MessageInterval: Type.Number({
+            description: 'Minutes between simulated messages',
+            default: 10
+        }),
+        CoTType: Type.Optional(Type.String({ description: 'CoT type override', default: 'a-f-G' }))
+    }), {
+        default: [],
+        description: 'Test devices configuration'
+    }),
     'DEBUG': Type.Boolean({
         default: false,
         description: 'Print debug info in logs'
@@ -48,6 +86,7 @@ export default class Task extends ETL {
                     inreachValidFix: Type.Optional(Type.String()),
                     inreachText: Type.Optional(Type.String()),
                     inreachEvent: Type.Optional(Type.String()),
+                    inreachEmergency: Type.Optional(Type.String()),
                     inreachDeviceId: Type.String(),
                     inreachReceive: Type.String({ format: 'date-time' }),
                 })
@@ -57,8 +96,170 @@ export default class Task extends ETL {
         }
     }
 
+    private generateTestKML(device: { IMEI: string; Name: string; DeviceType: string; StartLat: number; StartLon: number; MovementPattern: string; Speed: number; EmergencyMode: boolean; MessageInterval: number; CoTType?: string }): string {
+        const now = new Date();
+        const messageId = Math.floor(Math.random() * 999999999);
+        
+        let lat = device.StartLat;
+        let lon = device.StartLon;
+        let velocity = 0;
+        let course = 0;
+        
+        const timeOffset = Math.floor(now.getTime() / (device.MessageInterval * 60000));
+        
+        switch (device.MovementPattern) {
+            case 'random_walk': {
+                const walkRadius = 0.001;
+                lat += (Math.random() - 0.5) * walkRadius;
+                lon += (Math.random() - 0.5) * walkRadius;
+                velocity = device.Speed;
+                course = Math.random() * 360;
+                break;
+            }
+            case 'circular': {
+                const radius = 0.001;
+                const angle = (timeOffset * 0.1) % (2 * Math.PI);
+                lat += Math.sin(angle) * radius;
+                lon += Math.cos(angle) * radius;
+                velocity = device.Speed;
+                course = (angle * 180 / Math.PI + 90) % 360;
+                break;
+            }
+            case 'linear_path': {
+                lat += timeOffset * 0.0001;
+                lon += timeOffset * 0.0001;
+                velocity = device.Speed;
+                course = 45;
+                break;
+            }
+            default: {
+                lat += (Math.random() - 0.5) * 0.00001;
+                lon += (Math.random() - 0.5) * 0.00001;
+                velocity = 0;
+                course = 0;
+            }
+        }
+        
+        const elevation = 100 + Math.random() * 50;
+        const styleId = device.EmergencyMode ? 'style_emergency' : 'style_test';
+        
+        return `<?xml version="1.0" encoding="utf-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Test KML Export ${now.toISOString()}</name>
+    <Style id="style_emergency">
+      <IconStyle>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/shapes/caution.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Style id="style_test">
+      <IconStyle>
+        <color>ffff5500</color>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/paddle/wht-blank.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Folder>
+      <name>${device.Name}</name>
+      <Placemark>
+        <name>${device.Name}</name>
+        <TimeStamp>
+          <when>${now.toISOString()}</when>
+        </TimeStamp>
+        <styleUrl>#${styleId}</styleUrl>
+        <ExtendedData>
+          <Data name="Id">
+            <value>${messageId}</value>
+          </Data>
+          <Data name="Name">
+            <value>${device.Name}</value>
+          </Data>
+          <Data name="Map Display Name">
+            <value>${device.Name}</value>
+          </Data>
+          <Data name="Device Type">
+            <value>${device.DeviceType}</value>
+          </Data>
+          <Data name="IMEI">
+            <value>${device.IMEI}</value>
+          </Data>
+          <Data name="Incident Id">
+            <value></value>
+          </Data>
+          <Data name="Latitude">
+            <value>${lat.toFixed(6)}</value>
+          </Data>
+          <Data name="Longitude">
+            <value>${lon.toFixed(6)}</value>
+          </Data>
+          <Data name="Elevation">
+            <value>${elevation.toFixed(2)} m from MSL</value>
+          </Data>
+          <Data name="Velocity">
+            <value>${velocity.toFixed(1)} km/h</value>
+          </Data>
+          <Data name="Course">
+            <value>${course.toFixed(2)} ° True</value>
+          </Data>
+          <Data name="Valid GPS Fix">
+            <value>True</value>
+          </Data>
+          <Data name="In Emergency">
+            <value>${device.EmergencyMode ? 'True' : 'False'}</value>
+          </Data>
+          <Data name="Text">
+            <value>${device.EmergencyMode ? 'EMERGENCY - HELP NEEDED' : ''}</value>
+          </Data>
+          <Data name="Event">
+            <value>${device.EmergencyMode ? 'SOS activated' : 'Tracking interval received.'}</value>
+          </Data>
+          <Data name="Device Identifier">
+            <value></value>
+          </Data>
+          <Data name="SpatialRefSystem">
+            <value>WGS84</value>
+          </Data>
+        </ExtendedData>
+        <Point>
+          <coordinates>${lon.toFixed(6)},${lat.toFixed(6)},${elevation.toFixed(2)}</coordinates>
+        </Point>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>`;
+    }
+
     async control(): Promise<void> {
         const env = await this.env(Input);
+
+        if (env.TEST_MODE) {
+            if (!env.TEST_DEVICES || env.TEST_DEVICES.length === 0) {
+                console.log('TEST_MODE enabled but no TEST_DEVICES configured');
+                await this.submit({ type: 'FeatureCollection', features: [] });
+                return;
+            }
+            
+            console.log(`TEST_MODE: Simulating ${env.TEST_DEVICES.length} devices`);
+            const fc: Static<typeof InputFeatureCollection> = { type: 'FeatureCollection', features: [] };
+            
+            for (const device of env.TEST_DEVICES) {
+                const testKML = this.generateTestKML(device);
+                const features = await this.processKML(testKML, { ShareId: device.IMEI, CallSign: device.Name, CoTType: device.CoTType });
+                // Add simulation note to test device remarks
+                features.forEach(feature => {
+                    feature.properties.remarks += '\n\nNote: Simulated Device';
+                });
+                fc.features.push(...features);
+            }
+            
+            const totalEmergencies = fc.features.filter(f => (f.properties as { detail?: { alert?: string } }).detail?.alert === 'red').length;
+            console.log(`TEST_MODE: Generated ${fc.features.length} features with ${totalEmergencies} emergency alerts`);
+            await this.submit(fc);
+            return;
+        }
 
         if (!env.INREACH_MAP_SHARES) throw new Error('No INREACH_MAP_SHARES Provided');
         if (!Array.isArray(env.INREACH_MAP_SHARES)) throw new Error('INREACH_MAP_SHARES must be an array');
@@ -86,84 +287,30 @@ export default class Task extends ETL {
                         headers.append('Authorization', 'Basic ' + Buffer.from(":" + share.Password).toString('base64'));
                     }
 
-                    const kmlres = await fetch(url, { headers });
-                    const body = await kmlres.text();
-
-                    const featuresmap: Map<string, Static<typeof InputFeature>> = new Map();
-                    const features: Static<typeof InputFeature>[] = [];
-
-                    if (!body.trim()) return features;
-
-                    const xml = await xml2js.parseStringPromise(body);
-                    if (!xml.kml || !xml.kml.Document) throw new Error('XML Parse Error: Document not found');
-                    if (!xml.kml.Document[0] || !xml.kml.Document[0].Folder || !xml.kml.Document[0].Folder[0]) return;
-
-                    console.log(`ok - ${share.ShareId} has ${xml.kml.Document[0].Folder[0].Placemark.length} locations`);
-                    for (const placemark of xml.kml.Document[0].Folder[0].Placemark) {
-                        if (!placemark.Point || !placemark.Point[0]) continue;
-
-                        const coords = placemark.Point[0].coordinates[0].split(',').map((ele: string) => {
-                            return parseFloat(ele);
-                        });
-
-                        const extended: Record<string, string> = {};
-                        for (const ext of placemark.ExtendedData[0].Data) {
-                            extended[ext.$.name] = ext.value[0];
-                        }
-
-                        const id = `inreach-${extended['IMEI']}`;
-                        const feat: Static<typeof InputFeature> = {
-                            id,
-                            type: 'Feature',
-                            properties: {
-                                course: Number(extended['Course'].replace(/\s.*/, '')),
-                                speed: Number(extended['Velocity'].replace(/\s.*/, '')) * 0.277778, //km/h => m/s
-                                callsign: share.CallSign,
-                                time: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
-                                start: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
-                                links: [{
-                                    uid: id,
-                                    relation: 'r-u',
-                                    mime: 'text/html',
-                                    url: `https://share.garmin.com/${share.ShareId}`,
-                                    remarks: 'Garmin Portal'
-
-                                }],
-                                metadata: {
-                                    inreachId: extended['Id'],
-                                    inreachName: extended['Name'],
-                                    inreachDeviceType: extended['Device Type'],
-                                    inreachIMEI: extended['IMEI'],
-                                    inreachIncidentId: extended['Incident Id'],
-                                    inreachValidFix: extended['Valid GPS Fix'],
-                                    inreachText: extended['Text'],
-                                    inreachEvent: extended['Event'],
-                                    inreachDeviceId: extended['Device Identifier'],
-                                    inreachReceive: new Date(placemark.TimeStamp[0].when[0]).toISOString(),
-                                }
-                            },
-                            geometry: {
-                                type: 'Point',
-                                coordinates: coords
+                    // Add retry logic with exponential backoff
+                    let kmlres;
+                    let body;
+                    for (let attempt = 0; attempt < 3; attempt++) {
+                        try {
+                            kmlres = await fetch(url, { headers });
+                            if (!kmlres.ok) {
+                                throw new Error(`HTTP ${kmlres.status}: ${kmlres.statusText}`);
                             }
-                        };
-
-                        if (featuresmap.has(String(feat.id))) {
-                            const existing = featuresmap.get(String(feat.id));
-
-                            if (new Date(feat.properties.time) > new Date(existing.properties.time)) {
-                                featuresmap.set(String(feat.id), feat);
-                            }
-                        } else {
-                            featuresmap.set(String(feat.id), feat);
+                            body = await kmlres.text();
+                            break;
+                        } catch (error) {
+                            if (attempt === 2) throw error;
+                            console.log(`Attempt ${attempt + 1} failed for ${share.ShareId}, retrying...`);
+                            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
                         }
                     }
 
-                    features.push(...Array.from(featuresmap.values()))
 
-                    return features;
+
+                    return await this.processKML(body, share);
                 } catch (err) {
-                    console.error(`FEED: ${share.CallSign}: ${err}`);
+                    console.error(`FEED: ${share.CallSign}: ${err.message || err}`);
+                    return [];
                 }
             })(share))
         }
@@ -173,12 +320,162 @@ export default class Task extends ETL {
             features: []
         }
 
-        for (const res of await Promise.all(obtains)) {
+        const results = await Promise.all(obtains);
+        let totalFeatures = 0;
+        let totalEmergencies = 0;
+        
+        for (const res of results) {
             if (!res || !res.length) continue;
             fc.features.push(...res);
+            totalFeatures += res.length;
+            totalEmergencies += res.filter(f => (f.properties as { detail?: { alert?: string } }).detail?.alert === 'red').length;
+        }
+        
+        console.log(`ok - submitting ${totalFeatures} total features with ${totalEmergencies} emergency alerts`);
+        await this.submit(fc);
+    }
+
+    private async processKML(body: string, share: Share): Promise<Static<typeof InputFeature>[]> {
+        const featuresmap: Map<string, Static<typeof InputFeature>> = new Map();
+        const features: Static<typeof InputFeature>[] = [];
+
+        if (!body.trim()) return features;
+
+        let xml;
+        try {
+            xml = await xml2js.parseStringPromise(body);
+        } catch (error) {
+            throw new Error(`XML Parse Error: ${error.message}`);
+        }
+        
+        const kmlRoot = xml.kml || xml['kml'] || Object.values(xml)[0];
+        if (!kmlRoot || !kmlRoot.Document) throw new Error('XML Parse Error: Document not found');
+        if (!kmlRoot.Document[0] || !kmlRoot.Document[0].Folder || !kmlRoot.Document[0].Folder[0]) return features;
+        if (!kmlRoot.Document[0].Folder[0].Placemark) return features;
+        
+        const placemarks = kmlRoot.Document[0].Folder[0].Placemark;
+
+        console.log(`ok - ${share.ShareId} has ${placemarks.length} locations`);
+        for (const placemark of placemarks) {
+            if (!placemark.Point || !placemark.Point[0]) continue;
+
+            const coordsStr = placemark.Point[0].coordinates[0];
+            if (!coordsStr || typeof coordsStr !== 'string') {
+                console.warn(`Missing coordinates for ${share.ShareId}`);
+                continue;
+            }
+            
+            const coords = coordsStr.split(',').map((ele: string) => {
+                const val = parseFloat(ele.trim());
+                return isNaN(val) ? null : val;
+            }).filter(val => val !== null);
+            
+            if (coords.length < 2 || coords[1] < -90 || coords[1] > 90 || coords[0] < -180 || coords[0] > 180) {
+                console.warn(`Invalid coordinates for ${share.ShareId}: ${coordsStr}`);
+                continue;
+            }
+
+            const extended: Record<string, string> = {};
+            if (placemark.ExtendedData && placemark.ExtendedData[0] && placemark.ExtendedData[0].Data) {
+                for (const ext of placemark.ExtendedData[0].Data) {
+                    extended[ext.$.name] = ext.value && ext.value[0] ? ext.value[0] : '';
+                }
+            }
+            
+
+
+            let timestamp;
+            try {
+                if (!placemark.TimeStamp || !placemark.TimeStamp[0] || !placemark.TimeStamp[0].when || !placemark.TimeStamp[0].when[0]) {
+                    console.warn(`Missing timestamp for ${share.ShareId}`);
+                    continue;
+                }
+                timestamp = new Date(placemark.TimeStamp[0].when[0]);
+                if (isNaN(timestamp.getTime())) {
+                    console.warn(`Invalid timestamp for ${share.ShareId}: ${placemark.TimeStamp[0].when[0]}`);
+                    continue;
+                }
+            } catch (error) {
+                console.warn(`Timestamp parse error for ${share.ShareId}: ${error.message}`);
+                continue;
+            }
+
+            if (!extended['IMEI']) {
+                console.warn(`Missing IMEI for ${share.ShareId}`);
+                continue;
+            }
+            
+            const id = `inreach-${extended['IMEI']}`;
+            const isEmergency = extended['In Emergency'] === 'True';
+            
+            const remarks = [
+                `Time UTC: ${extended['Time UTC'] || 'Unknown'}`,
+                `Name: ${extended['Name'] || 'Unknown'}`,
+                `Map Display Name: ${extended['Map Display Name'] || 'Unknown'}`,
+                `Device: ${extended['Device Type'] || 'Unknown'}`,
+                `Elevation: ${extended['Elevation'] || 'Unknown'}`,
+                `Velocity: ${extended['Velocity'] || 'Unknown'}`,
+                `Course: ${extended['Course'] || 'Unknown'}`,
+                `Event: ${extended['Event'] || 'Unknown'}`,
+                `GPS Fix: ${extended['Valid GPS Fix'] || 'Unknown'}`,
+                `Emergency: ${extended['In Emergency'] || 'False'}`,
+                extended['Text'] ? `Message: ${extended['Text']}` : null,
+                extended['Incident Id'] ? `Incident: ${extended['Incident Id']}` : null
+            ].filter(Boolean).join('\n');
+            
+            const feat: Static<typeof InputFeature> = {
+                id,
+                type: 'Feature',
+                properties: {
+                    type: share.CoTType || 'a-f-G',
+                    course: Number(extended['Course']?.replace(/\s.*/, '') || 0),
+                    speed: Number(extended['Velocity']?.replace(/\s.*/, '') || 0) * 0.277778,
+                    callsign: isEmergency ? `${share.CallSign} - EMERGENCY` : share.CallSign,
+                    time: timestamp.toISOString(),
+                    start: timestamp.toISOString(),
+                    remarks,
+                    ...(isEmergency && { detail: { alert: 'red' } }),
+                    ...(isEmergency && { 'marker-color': '#ffa500' }),
+                    links: [{
+                        uid: id,
+                        relation: 'r-u',
+                        mime: 'text/html',
+                        url: `https://share.garmin.com/${share.ShareId}`,
+                        remarks: 'Garmin Portal'
+                    }],
+                    metadata: {
+                        inreachId: extended['Id'],
+                        inreachName: extended['Name'],
+                        inreachDeviceType: extended['Device Type'],
+                        inreachIMEI: extended['IMEI'],
+                        inreachIncidentId: extended['Incident Id'],
+                        inreachValidFix: extended['Valid GPS Fix'],
+                        inreachText: extended['Text'],
+                        inreachEvent: extended['Event'],
+                        inreachEmergency: extended['In Emergency'],
+                        inreachDeviceId: extended['Device Identifier'],
+                        inreachReceive: timestamp.toISOString(),
+                    }
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: coords
+                }
+            };
+
+            if (featuresmap.has(String(feat.id))) {
+                const existing = featuresmap.get(String(feat.id));
+                if (new Date(feat.properties.time) > new Date(existing.properties.time)) {
+                    featuresmap.set(String(feat.id), feat);
+                }
+            } else {
+                featuresmap.set(String(feat.id), feat);
+            }
         }
 
-        await this.submit(fc);
+        features.push(...Array.from(featuresmap.values()));
+        console.log(`ok - ${share.ShareId} processed ${featuresmap.size} locations`);
+        return features;
     }
 }
 

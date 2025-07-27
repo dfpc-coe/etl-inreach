@@ -1,4 +1,4 @@
-name: Test
+name: Lint and Test
 
 on:
   push:
@@ -12,22 +12,32 @@ on:
       - ready_for_review
 
 jobs:
-  test:
+  lint-and-test:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{github.event.pull_request.head.sha || github.sha}}
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: 18
           registry-url: https://registry.npmjs.org/
+          cache: 'npm'
 
       - name: NPM Install
-        run: npm install
+        run: npm ci
 
       - name: Lint
         run: npm run lint
+        
+      - name: Build
+        run: npm run build
+        
+      - name: Test
+        run: npm test
+        
+      - name: Security audit
+        run: npm audit --production
