@@ -242,10 +242,20 @@ export default class Task extends ETL {
                 return;
             }
             
-            console.log(`TEST_MODE: Simulating ${env.TEST_DEVICES.length} devices`);
+            const now = new Date();
+            const activeDevices = env.TEST_DEVICES.filter(device => {
+                const minutesSinceEpoch = Math.floor(now.getTime() / 60000);
+                return minutesSinceEpoch % device.MessageInterval === 0;
+            });
+            
+            if (activeDevices.length === 0) {
+                return;
+            }
+            
+            console.log(`TEST_MODE: Simulating ${activeDevices.length} of ${env.TEST_DEVICES.length} devices`);
             const fc: Static<typeof InputFeatureCollection> = { type: 'FeatureCollection', features: [] };
             
-            for (const device of env.TEST_DEVICES) {
+            for (const device of activeDevices) {
                 const testKML = this.generateTestKML(device);
                 const features = await this.processKML(testKML, { ShareId: device.IMEI, CallSign: device.Name, CoTType: device.CoTType });
                 // Add simulation note to test device remarks
