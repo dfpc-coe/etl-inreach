@@ -1,8 +1,8 @@
 {
-    "name": "coe-inreach",
+    "name": "etl-inreach",
     "type": "module",
     "prviate": true,
-    "version": "5.0.0",
+    "version": "1.0.0",
     "description": "",
     "main": "task.ts",
     "scripts": {
@@ -10,8 +10,8 @@
         "build": "tsc --build",
         "test": "exit 0"
     },
-    "author": "Nick Ingalls <nick@ingalls.ca>",
-    "license": "ISC",
+    "author": "Christian Elsen <chris@elsen.nz>",
+    "license": "AGPL-3.0-only",
     "devDependencies": {
         "@eslint/js": "^9.19.0",
         "@types/xml2js": "^0.4.11",
