@@ -18,7 +18,8 @@ const EphemeralSchema = Type.Object({
         currentLon: Type.Number(),
         lastUpdate: Type.String({ format: 'date-time' }),
         currentAngle: Type.Optional(Type.Number()),
-        stepCount: Type.Number({ default: 0 })
+        stepCount: Type.Number({ default: 0 }),
+        wasEmergency: Type.Optional(Type.Boolean({ default: false }))
     }))
 });
 
@@ -291,7 +292,8 @@ export default class Task extends ETL {
                         currentLat: device.StartLat,
                         currentLon: device.StartLon,
                         lastUpdate: now.toISOString(),
-                        stepCount: 0
+                        stepCount: 0,
+                        wasEmergency: false
                     };
                     console.log(`TEST_MODE: Initialized new device ${device.Name} (${deviceKey}) at ${device.StartLat.toFixed(6)}, ${device.StartLon.toFixed(6)}`);
                 } else {
@@ -312,11 +314,14 @@ export default class Task extends ETL {
                 fc.features.push(...features);
             }
             
+            await this.processAlerts(fc.features, ephemeral);
+            
             await this.setEphemeral(ephemeral);
             console.log(`TEST_MODE: Saved ephemeral state for ${Object.keys(ephemeral.deviceStates).length} devices`);
             
-            const totalEmergencies = fc.features.filter(f => (f.properties as { detail?: { alert?: string } }).detail?.alert === 'red').length;
-            console.log(`TEST_MODE: Generated ${fc.features.length} features with ${totalEmergencies} emergency alerts`);
+            const emergencyCount = fc.features.filter(f => f.properties.type === 'b-a-o-tbl').length;
+            const cancelCount = fc.features.filter(f => f.properties.type === 'b-a-o-can').length;
+            console.log(`TEST_MODE: Generated ${fc.features.length} features with ${emergencyCount} emergency alerts and ${cancelCount} cancel alerts`);
             await this.submit(fc);
             return;
         }
@@ -382,16 +387,23 @@ export default class Task extends ETL {
 
         const results = await Promise.all(obtains);
         let totalFeatures = 0;
-        let totalEmergencies = 0;
         
         for (const res of results) {
             if (!res || !res.length) continue;
             fc.features.push(...res);
             totalFeatures += res.length;
-            totalEmergencies += res.filter(f => (f.properties as { detail?: { alert?: string } }).detail?.alert === 'red').length;
         }
         
-        console.log(`ok - submitting ${totalFeatures} total features with ${totalEmergencies} emergency alerts`);
+        const ephemeral = await this.ephemeral(EphemeralSchema);
+        if (!ephemeral.deviceStates) ephemeral.deviceStates = {};
+        
+        await this.processAlerts(fc.features, ephemeral);
+        
+        await this.setEphemeral(ephemeral);
+        
+        const emergencyCount = fc.features.filter(f => f.properties.type === 'b-a-o-tbl').length;
+        const cancelCount = fc.features.filter(f => f.properties.type === 'b-a-o-can').length;
+        console.log(`ok - submitting ${totalFeatures} total features with ${emergencyCount} emergency alerts and ${cancelCount} cancel alerts`);
         await this.submit(fc);
     }
 
@@ -466,7 +478,6 @@ export default class Task extends ETL {
             }
             
             const id = `inreach-${extended['IMEI']}`;
-            const isEmergency = extended['In Emergency'] === 'True';
             
             const remarks = [
                 `Time: ${extended['Time UTC'] || 'Unknown'}`,
@@ -490,12 +501,10 @@ export default class Task extends ETL {
                     type: share.CoTType || 'a-f-G',
                     course: Number(extended['Course']?.replace(/\s.*/, '') || 0),
                     speed: Number(extended['Velocity']?.replace(/\s.*/, '') || 0) * 0.277778,
-                    callsign: isEmergency ? `${share.CallSign} - EMERGENCY` : share.CallSign,
+                    callsign: share.CallSign,
                     time: timestamp.toISOString(),
                     start: timestamp.toISOString(),
                     remarks,
-                    ...(isEmergency && { detail: { alert: 'red' } }),
-                    ...(isEmergency && { 'marker-color': '#ffa500' }),
                     links: [{
                         uid: id,
                         relation: 'r-u',
@@ -536,6 +545,76 @@ export default class Task extends ETL {
         features.push(...Array.from(featuresmap.values()));
         console.log(`ok - ${share.ShareId} processed ${featuresmap.size} locations`);
         return features;
+    }
+
+    private async processAlerts(features: Static<typeof InputFeature>[], ephemeral: Static<typeof EphemeralSchema>): Promise<void> {
+        const alertFeatures: Static<typeof InputFeature>[] = [];
+        
+        for (const feature of features) {
+            const deviceKey = String(feature.properties.metadata.inreachIMEI);
+            if (!deviceKey) continue;
+            
+            const isCurrentlyEmergency = feature.properties.metadata.inreachEmergency === 'True';
+            const wasEmergency = ephemeral.deviceStates[deviceKey]?.wasEmergency || false;
+            
+            // Create separate emergency alert CoT events
+            if (!wasEmergency && isCurrentlyEmergency) {
+                console.log(`ALERT: Emergency started for ${feature.properties.callsign}`);
+                alertFeatures.push(this.createEmergencyAlert(feature, 'b-a-o-tbl'));
+            } else if (wasEmergency && !isCurrentlyEmergency) {
+                console.log(`CANCEL: Emergency ended for ${feature.properties.callsign}`);
+                alertFeatures.push(this.createEmergencyAlert(feature, 'b-a-o-can'));
+            }
+            
+            // Update emergency state
+            const coords = feature.geometry.coordinates as number[];
+            if (!ephemeral.deviceStates[deviceKey]) {
+                ephemeral.deviceStates[deviceKey] = {
+                    currentLat: coords[1],
+                    currentLon: coords[0],
+                    lastUpdate: feature.properties.time,
+                    stepCount: 0,
+                    wasEmergency: isCurrentlyEmergency
+                };
+            } else {
+                ephemeral.deviceStates[deviceKey].wasEmergency = isCurrentlyEmergency;
+            }
+        }
+        
+        // Add alert features to the main features array
+        features.push(...alertFeatures);
+    }
+    
+    private createEmergencyAlert(deviceFeature: Static<typeof InputFeature>, alertType: string): Static<typeof InputFeature> {
+        const alertId = `${deviceFeature.id}-9-1-1`;
+        const isCancel = alertType === 'b-a-o-can';
+        
+        return {
+            id: alertId,
+            type: 'Feature',
+            properties: {
+                type: alertType,
+                callsign: `${deviceFeature.properties.callsign}-Alert`,
+                time: deviceFeature.properties.time,
+                start: deviceFeature.properties.time,
+                remarks: isCancel ? 'Emergency cancelled' : `Emergency alert from ${deviceFeature.properties.callsign}`,
+                links: [{
+                    uid: String(deviceFeature.id),
+                    relation: 'p-p',
+                    type: deviceFeature.properties.type
+                }],
+                metadata: {
+                    emergency: {
+                        type: isCancel ? 'Cancel Alert' : '911 Alert',
+                        cancel: isCancel ? 'true' : undefined
+                    },
+                    contact: {
+                        callsign: `${deviceFeature.properties.callsign}-Alert`
+                    }
+                }
+            },
+            geometry: deviceFeature.geometry
+        };
     }
 }
 
