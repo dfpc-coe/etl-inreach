@@ -12,6 +12,16 @@ export interface Share {
     CoTType?: string;
 }
 
+const EphemeralSchema = Type.Object({
+    deviceStates: Type.Record(Type.String(), Type.Object({
+        currentLat: Type.Number(),
+        currentLon: Type.Number(),
+        lastUpdate: Type.String({ format: 'date-time' }),
+        currentAngle: Type.Optional(Type.Number()),
+        stepCount: Type.Number({ default: 0 })
+    }))
+});
+
 const Input = Type.Object({
     'INREACH_MAP_SHARES': Type.Array(Type.Object({
         ShareId: Type.String({ description: 'Garmin Inreach Share ID or URL' }),
@@ -96,38 +106,44 @@ export default class Task extends ETL {
         }
     }
 
-    private generateTestKML(device: { IMEI: string; Name: string; DeviceType: string; StartLat: number; StartLon: number; MovementPattern: string; Speed: number; EmergencyMode: boolean; MessageInterval: number; CoTType?: string }): string {
+    private generateTestKML(device: { IMEI: string; Name: string; DeviceType: string; StartLat: number; StartLon: number; MovementPattern: string; Speed: number; EmergencyMode: boolean; MessageInterval: number; CoTType?: string }, deviceState: Static<typeof EphemeralSchema>['deviceStates'][string]): string {
         const now = new Date();
         const messageId = Math.floor(Math.random() * 999999999);
         
-        let lat = device.StartLat;
-        let lon = device.StartLon;
+        let lat = deviceState.currentLat;
+        let lon = deviceState.currentLon;
         let velocity = 0;
         let course = 0;
         
-        const timeOffset = Math.floor(now.getTime() / (device.MessageInterval * 60000));
+        const lastUpdate = new Date(deviceState.lastUpdate);
+        const minutesElapsed = (now.getTime() - lastUpdate.getTime()) / 60000;
+        const distanceKm = (device.Speed * minutesElapsed) / 60;
+        const distanceDeg = distanceKm / 111;
         
         switch (device.MovementPattern) {
             case 'random_walk': {
-                const walkRadius = 0.001;
-                lat += (Math.random() - 0.5) * walkRadius;
-                lon += (Math.random() - 0.5) * walkRadius;
+                if (minutesElapsed > 0) {
+                    const angle = Math.random() * 2 * Math.PI;
+                    lat += Math.sin(angle) * distanceDeg;
+                    lon += Math.cos(angle) * distanceDeg;
+                    course = (angle * 180 / Math.PI) % 360;
+                }
                 velocity = device.Speed;
-                course = Math.random() * 360;
                 break;
             }
             case 'circular': {
                 const radius = 0.001;
-                const angle = (timeOffset * 0.1) % (2 * Math.PI);
-                lat += Math.sin(angle) * radius;
-                lon += Math.cos(angle) * radius;
+                deviceState.currentAngle = (deviceState.currentAngle || 0) + (minutesElapsed * 0.1);
+                lat = device.StartLat + Math.sin(deviceState.currentAngle) * radius;
+                lon = device.StartLon + Math.cos(deviceState.currentAngle) * radius;
                 velocity = device.Speed;
-                course = (angle * 180 / Math.PI + 90) % 360;
+                course = (deviceState.currentAngle * 180 / Math.PI + 90) % 360;
                 break;
             }
             case 'linear_path': {
-                lat += timeOffset * 0.0001;
-                lon += timeOffset * 0.0001;
+                deviceState.stepCount += minutesElapsed;
+                lat = device.StartLat + deviceState.stepCount * 0.0001;
+                lon = device.StartLon + deviceState.stepCount * 0.0001;
                 velocity = device.Speed;
                 course = 45;
                 break;
@@ -139,6 +155,10 @@ export default class Task extends ETL {
                 course = 0;
             }
         }
+        
+        deviceState.currentLat = lat;
+        deviceState.currentLon = lon;
+        deviceState.lastUpdate = now.toISOString();
         
         const elevation = 100 + Math.random() * 50;
         const styleId = device.EmergencyMode ? 'style_emergency' : 'style_test';
@@ -242,6 +262,10 @@ export default class Task extends ETL {
                 return;
             }
             
+            const ephemeral = await this.ephemeral(EphemeralSchema);
+            if (!ephemeral.deviceStates) ephemeral.deviceStates = {};
+            console.log(`TEST_MODE: Loaded ephemeral state for ${Object.keys(ephemeral.deviceStates).length} devices`);
+            
             const now = new Date();
             const activeDevices = env.TEST_DEVICES.filter(device => {
                 const minutesSinceEpoch = Math.floor(now.getTime() / 60000);
@@ -256,14 +280,37 @@ export default class Task extends ETL {
             const fc: Static<typeof InputFeatureCollection> = { type: 'FeatureCollection', features: [] };
             
             for (const device of activeDevices) {
-                const testKML = this.generateTestKML(device);
+                const deviceKey = device.IMEI;
+                const isNewDevice = !ephemeral.deviceStates[deviceKey];
+                
+                if (isNewDevice) {
+                    ephemeral.deviceStates[deviceKey] = {
+                        currentLat: device.StartLat,
+                        currentLon: device.StartLon,
+                        lastUpdate: now.toISOString(),
+                        stepCount: 0
+                    };
+                    console.log(`TEST_MODE: Initialized new device ${device.Name} (${deviceKey}) at ${device.StartLat.toFixed(6)}, ${device.StartLon.toFixed(6)}`);
+                } else {
+                    const state = ephemeral.deviceStates[deviceKey];
+                    const lastUpdate = new Date(state.lastUpdate);
+                    const minutesElapsed = (now.getTime() - lastUpdate.getTime()) / 60000;
+                    console.log(`TEST_MODE: Device ${device.Name} (${deviceKey}) - Last: ${state.currentLat.toFixed(6)}, ${state.currentLon.toFixed(6)} (${minutesElapsed.toFixed(1)}min ago)`);
+                }
+                
+                const testKML = this.generateTestKML(device, ephemeral.deviceStates[deviceKey]);
+                const newState = ephemeral.deviceStates[deviceKey];
+                console.log(`TEST_MODE: Device ${device.Name} moved to ${newState.currentLat.toFixed(6)}, ${newState.currentLon.toFixed(6)} (${device.MovementPattern})`);
+                
                 const features = await this.processKML(testKML, { ShareId: device.IMEI, CallSign: device.Name, CoTType: device.CoTType });
-                // Add simulation note to test device remarks
                 features.forEach(feature => {
                     feature.properties.remarks += '\n\nNote: Simulated Device';
                 });
                 fc.features.push(...features);
             }
+            
+            await this.setEphemeral(ephemeral);
+            console.log(`TEST_MODE: Saved ephemeral state for ${Object.keys(ephemeral.deviceStates).length} devices`);
             
             const totalEmergencies = fc.features.filter(f => (f.properties as { detail?: { alert?: string } }).detail?.alert === 'red').length;
             console.log(`TEST_MODE: Generated ${fc.features.length} features with ${totalEmergencies} emergency alerts`);
@@ -419,7 +466,7 @@ export default class Task extends ETL {
             const isEmergency = extended['In Emergency'] === 'True';
             
             const remarks = [
-                `Time UTC: ${extended['Time UTC'] || 'Unknown'}`,
+                `Time: ${extended['Time UTC'] || 'Unknown'}`,
                 `Name: ${extended['Name'] || 'Unknown'}`,
                 `Map Display Name: ${extended['Map Display Name'] || 'Unknown'}`,
                 `Device: ${extended['Device Type'] || 'Unknown'}`,
