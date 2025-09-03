@@ -236,6 +236,9 @@ export default class Task extends ETL {
           <Data name="Event">
             <value>${device.EmergencyMode ? 'SOS activated' : 'Tracking interval received.'}</value>
           </Data>
+          <Data name="Time UTC">
+            <value>${now.toISOString()}</value>
+          </Data>
           <Data name="Device Identifier">
             <value></value>
           </Data>
