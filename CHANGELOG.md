@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v5.1.0 - 2024-08-04
+
+- :arrow_up: Update Core Deps
+
 ### v5.0.0 - 2024-07-02
 
 - :tada: Split EverywhereHub ETL into its own package
