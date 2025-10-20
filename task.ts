@@ -1,4 +1,4 @@
-import type { InputFeatureCollection, InputFeature } from '@tak-ps/etl';
+import { Feature } from '@tak-ps/node-cot';
 import type { Static, TSchema } from '@sinclair/typebox';
 import { Type } from '@sinclair/typebox';
 import xml2js from 'xml2js';
@@ -63,9 +63,9 @@ export default class Task extends ETL {
         if (!env.INREACH_MAP_SHARES) throw new Error('No INREACH_MAP_SHARES Provided');
         if (!Array.isArray(env.INREACH_MAP_SHARES)) throw new Error('INREACH_MAP_SHARES must be an array');
 
-        const obtains: Array<Promise<Static<typeof InputFeature>[]>> = [];
+        const obtains: Array<Promise<Static<typeof Feature.InputFeature>[]>> = [];
         for (const share of env.INREACH_MAP_SHARES) {
-            obtains.push((async (share: Share): Promise<Static<typeof InputFeature>[]> => {
+            obtains.push((async (share: Share): Promise<Static<typeof Feature.InputFeature>[]> => {
                 try {
                     if (share.ShareId.startsWith('https://')) {
                         share.ShareId = new URL(share.ShareId).pathname.replace(/^\//, '');
@@ -89,8 +89,8 @@ export default class Task extends ETL {
                     const kmlres = await fetch(url, { headers });
                     const body = await kmlres.text();
 
-                    const featuresmap: Map<string, Static<typeof InputFeature>> = new Map();
-                    const features: Static<typeof InputFeature>[] = [];
+                    const featuresmap: Map<string, Static<typeof Feature.InputFeature>> = new Map();
+                    const features: Static<typeof Feature.InputFeature>[] = [];
 
                     if (!body.trim()) return features;
 
@@ -112,7 +112,7 @@ export default class Task extends ETL {
                         }
 
                         const id = `inreach-${extended['IMEI']}`;
-                        const feat: Static<typeof InputFeature> = {
+                        const feat: Static<typeof Feature.InputFeature> = {
                             id,
                             type: 'Feature',
                             properties: {
@@ -168,7 +168,7 @@ export default class Task extends ETL {
             })(share))
         }
 
-        const fc: Static<typeof InputFeatureCollection> = {
+        const fc: Static<typeof Feature.InputFeatureCollection> = {
             type: 'FeatureCollection',
             features: []
         }
