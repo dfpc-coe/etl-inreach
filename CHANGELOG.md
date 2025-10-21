@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v5.4.0
+
+- :arrow_up: Update Core Dependencies
+
 ### v5.3.0 - 2025-10-20
 
 - :arrow_up: Update Core Deps
