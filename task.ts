@@ -96,7 +96,7 @@ export default class Task extends ETL {
 
                     const xml = await xml2js.parseStringPromise(body);
                     if (!xml.kml || !xml.kml.Document) throw new Error('XML Parse Error: Document not found');
-                    if (!xml.kml.Document[0] || !xml.kml.Document[0].Folder || !xml.kml.Document[0].Folder[0]) return;
+                    if (!xml.kml.Document[0] || !xml.kml.Document[0].Folder || !xml.kml.Document[0].Folder[0]) return features;
 
                     console.log(`ok - ${share.ShareId} has ${xml.kml.Document[0].Folder[0].Placemark.length} locations`);
                     for (const placemark of xml.kml.Document[0].Folder[0].Placemark) {
@@ -151,7 +151,7 @@ export default class Task extends ETL {
                         if (featuresmap.has(String(feat.id))) {
                             const existing = featuresmap.get(String(feat.id));
 
-                            if (new Date(feat.properties.time) > new Date(existing.properties.time)) {
+                            if (existing && new Date(feat.properties.time ?? 0) > new Date(existing.properties.time ?? 0)) {
                                 featuresmap.set(String(feat.id), feat);
                             }
                         } else {
@@ -164,6 +164,7 @@ export default class Task extends ETL {
                     return features;
                 } catch (err) {
                     console.error(`FEED: ${share.CallSign}: ${err}`);
+                    return [];
                 }
             })(share))
         }
