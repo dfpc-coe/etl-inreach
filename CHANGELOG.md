@@ -10,6 +10,16 @@
 
 ## Version History
 
+### v6.0.0
+
+- :rocket: **Breaking** Garmin removed the public MapShare KML feed (`/Feed/Share/{ShareId}` now returns a 302 redirect to `/`) - the feed client has been rewritten to use the anonymous SignalR `MapHub` websocket that powers the MapShare web UI itself
+- :rocket: **Breaking** CoT IDs are now `inreach-{MapShare User ID}` as the device IMEI is no longer exposed by Garmin
+- :rocket: **Breaking** Output metadata schema updated to the fields available from the new feed (`inreachShareId`, `inreachEmergency`, `inreachBattery` added; IMEI/DeviceType/Event fields removed)
+- :tada: Multi-device MapShare pages now produce correctly named per-device features via the Garmin Display Name (a configured `CallSign` still wins for single-device shares)
+- :tada: Feed failures no longer fail silently - all shares are processed, successful features are submitted, and an aggregate error is then thrown so the layer turns red in CloudTAK
+- :bug: Course is omitted when speed is 0 (Garmin marks the heading invalid)
+- :arrow_up: Remove `xml2js` dependency - Node's native `fetch`/`WebSocket` are used instead
+
 ### v5.9.0
 
 - :arrow_up: Update Core Dependencies

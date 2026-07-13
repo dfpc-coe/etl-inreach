@@ -2,7 +2,7 @@
     "name": "coe-inreach",
     "type": "module",
     "prviate": true,
-    "version": "5.9.0",
+    "version": "6.0.0",
     "description": "",
     "main": "task.ts",
     "scripts": {
@@ -17,14 +17,12 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.0",
-        "@types/xml2js": "^0.4.11",
         "eslint": "^10.0.0",
         "typescript": "^6.0.0",
         "typescript-eslint": "^8.58.1"
     },
     "dependencies": {
         "@sinclair/typebox": "^0.34.0",
-        "@tak-ps/etl": "^10.0.0",
-        "xml2js": "^0.6.0"
+        "@tak-ps/etl": "^10.0.0"
     }
 }
