@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v6.2.0
+
+- :arrow_up: Update GH Actions
+
 ### v6.1.0
 
 - :arrow_up: Update GH Actions
