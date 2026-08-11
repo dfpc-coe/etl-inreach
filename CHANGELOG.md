@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v6.1.0
+
+- :arrow_up: Update GH Actions
+
 ### v6.0.0
 
 - :rocket: **Breaking** Garmin removed the public MapShare KML feed (`/Feed/Share/{ShareId}` now returns a 302 redirect to `/`) - the feed client has been rewritten to use the anonymous SignalR `MapHub` websocket that powers the MapShare web UI itself
