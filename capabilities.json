@@ -1,0 +1,27 @@
+{
+    "version": "1.0",
+    "name": "Garmin inReach",
+    "description": "Ingests satellite tracking positions from Garmin inReach and posts them to the map.",
+    "compute": {
+        "memory": 512,
+        "timeout": 90
+    },
+    "permissions": [
+        {
+            "resource": "feature:*",
+            "required": true,
+            "description": "Garmin inReach posts satellite tracker positions to the map"
+        }
+    ],
+    "invocations": {
+        "incoming": {
+            "schedule": {
+                "description": "Polls Garmin inReach for updated satellite tracking positions on a schedule.",
+                "default": {
+                    "enabled": true,
+                    "schedule": "rate(1 minute)"
+                }
+            }
+        }
+    }
+}

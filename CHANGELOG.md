@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v6.3.0
+
+- :rocket: Add Capabilities Document
+
 ### v6.2.0
 
 - :arrow_up: Update GH Actions
