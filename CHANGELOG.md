@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v6.3.2
+
+- :bug: Bump GH actions
+
 ### v6.3.1
 
 - :arrow_up: Update CloudTAK Core Dependencies
