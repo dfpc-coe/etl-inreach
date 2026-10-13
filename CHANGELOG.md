@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v6.3.1
+
+- :arrow_up: Update CloudTAK Core Dependencies
+
 ### v6.3.0
 
 - :rocket: Add Capabilities Document
