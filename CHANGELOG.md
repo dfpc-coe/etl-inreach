@@ -10,6 +10,10 @@
 
 ## Version History
 
+### v6.3.0
+
+- :arrow_up: Update Core Dependencies
+
 ### v6.3.2
 
 - :bug: Bump GH actions
