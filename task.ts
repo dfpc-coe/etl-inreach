@@ -1,6 +1,7 @@
 import { Feature } from '@tak-ps/node-cot';
 import type { Static, TSchema } from '@sinclair/typebox';
 import { Type } from '@sinclair/typebox';
+import { Value } from '@sinclair/typebox/value';
 import ETL, { DataFlowType, SchemaType, handler as internal, local, InvocationType } from '@tak-ps/etl';
 import type { Event } from '@tak-ps/etl';
 
@@ -18,17 +19,28 @@ export interface Share {
  * Field meanings decoded from the MappointModel in share.garmin.com's map.js bundle
  */
 export interface MapShareLocation {
-    L: number;              // Latitude
-    N: number;              // Longitude
-    A: number;              // Altitude in meters
-    G: number;              // Speed in km/h - 0 also marks the course as invalid
-    C: number;              // Course in 22.5 degree increments (0-15)
-    D: string;              // UTC timestamp
-    S: number;              // Point type: 3=TextMessage, 5=LocationResponse, 6=TrackPoint, 7=WaypointNav
-    X: string;              // Message text
-    M: number;              // Message ID
-    T?: number;             // Track ID
-    P?: number | null;      // Battery: 0=Normal, non-zero=Low, null=Unknown
+    /** Latitude */
+    L: number;
+    /** Longitude */
+    N: number;
+    /** Altitude in meters */
+    A: number;
+    /** Speed in km/h - 0 also marks the course as invalid */
+    G: number;
+    /** Course in 22.5 degree increments (0-15) */
+    C: number;
+    /** UTC timestamp */
+    D: string;
+    /** Point type: 3=TextMessage, 5=LocationResponse, 6=TrackPoint, 7=WaypointNav */
+    S: number;
+    /** Message text */
+    X: string;
+    /** Message ID */
+    M: number;
+    /** Track ID */
+    T?: number;
+    /** Battery: 0=Normal, non-zero=Low, null=Unknown */
+    P?: number | null;
 }
 
 export interface MapShareUser {
@@ -41,22 +53,26 @@ export interface MapShareUser {
     TrackingStatus: boolean;
     HasData: boolean;
     MatchesCurrentFilter: boolean | null;
-    InSOS: boolean;
+    InSOS: boolean | null;
     Locations: MapShareLocation[];
     LastSeenTime: string | null;
     GroupID: number;
     ColorCode: string;
 }
 
-interface HubMessage {
-    H?: string;             // Hub name
-    M?: string;             // Method name
-    A?: unknown[];          // Arguments
+const HubEnvelope = Type.Object({
+    M: Type.Optional(Type.Array(Type.Object({
+        M: Type.Optional(Type.String({ description: 'Method name' })),
+        A: Type.Optional(Type.Array(Type.Unknown(), { description: 'Arguments' }))
+    })))
+});
+
+function isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
 }
 
-interface HubEnvelope {
-    C?: string;             // Message cursor
-    M?: HubMessage[];       // Hub messages
+function isMapShareUser(value: unknown): value is MapShareUser {
+    return isObject(value) && typeof value.Id === 'number';
 }
 
 /**
@@ -92,15 +108,15 @@ export async function fetchMapShare(
 
     const negres = await fetch(`${GARMIN_BASE}/signalr/negotiate?${params()}`, { headers: httpHeaders });
     if (!negres.ok) throw new Error(`${shareId}: SignalR negotiate failed: HTTP ${negres.status}`);
-    const neg = await negres.json() as { ConnectionToken?: string };
-    if (!neg.ConnectionToken) throw new Error(`${shareId}: SignalR negotiate did not return a ConnectionToken`);
+    const neg: unknown = await negres.json();
+    if (!isObject(neg) || typeof neg.ConnectionToken !== 'string' || !neg.ConnectionToken) throw new Error(`${shareId}: SignalR negotiate did not return a ConnectionToken`);
 
     const connectParams = params({
         transport: 'webSockets',
         connectionToken: neg.ConnectionToken
     });
 
-    return await new Promise<MapShareUser[]>((resolve, reject) => {
+    return new Promise<MapShareUser[]>((resolve, reject) => {
         const ws = new WebSocket(`wss://share.garmin.com/signalr/connect?${connectParams}`);
 
         const users: Map<number, MapShareUser> = new Map();
@@ -117,7 +133,7 @@ export async function fetchMapShare(
             try {
                 ws.close();
             } catch (closeErr) {
-                console.error(`${shareId}: ${closeErr}`);
+                console.error(`${shareId}: ${String(closeErr)}`);
             }
             if (err) reject(err);
             else resolve(Array.from(users.values()));
@@ -134,17 +150,19 @@ export async function fetchMapShare(
         // Resolve once the server has gone quiet after the filter was applied
         const settle = (): void => {
             if (settleTimer) clearTimeout(settleTimer);
-            settleTimer = setTimeout(() => finish(), opts.settle ?? 5000);
+            settleTimer = setTimeout(() => {
+                finish();
+            }, opts.settle ?? 5000);
         };
 
-        const upsert = (user: MapShareUser): void => {
-            if (!user || typeof user.Id !== 'number') return;
+        const upsert = (user: unknown): void => {
+            if (!isMapShareUser(user)) return;
             if (!Array.isArray(user.Locations)) user.Locations = [];
 
             // The server pushes several UpdateUser messages per user - never
             // let a later push with an empty Locations array clobber positions
             const existing = users.get(user.Id);
-            if (existing && existing.Locations.length) {
+            if (existing && existing.Locations.length > 0) {
                 const seen = new Set(user.Locations.map((loc) => `${loc.D}-${loc.M}`));
                 user.Locations.push(...existing.Locations.filter((loc) => !seen.has(`${loc.D}-${loc.M}`)));
             }
@@ -187,31 +205,33 @@ export async function fetchMapShare(
             settle();
         };
 
-        ws.onopen = () => {
+        ws.addEventListener('open', () => {
             // Complete the classic ASP.NET SignalR handshake - data pushes begin
             // as soon as the transport connects so a failure here is non-fatal
             fetch(`${GARMIN_BASE}/signalr/start?${connectParams}`, { headers: httpHeaders }).catch((err) => {
                 console.error(`${shareId}: SignalR start failed: ${err}`);
             });
-        };
+        });
 
-        ws.onerror = () => {
+        ws.addEventListener('error', () => {
             finish(new Error(`${shareId}: MapShare websocket connection failed`));
-        };
+        });
 
-        ws.onclose = () => {
+        ws.addEventListener('close', () => {
             if (filterSent) finish();
             else finish(new Error(`${shareId}: MapShare websocket closed before the user list was received`));
-        };
+        });
 
-        ws.onmessage = (msg) => {
-            let body: HubEnvelope;
+        ws.addEventListener('message', (msg) => {
+            let body: unknown;
             try {
                 body = JSON.parse(String(msg.data));
             } catch (parseErr) {
-                console.error(`${shareId}: ${parseErr}`);
+                console.error(`${shareId}: ${String(parseErr)}`);
                 return;
             }
+
+            if (!Value.Check(HubEnvelope, body)) return;
 
             for (const hubmsg of body.M ?? []) {
                 // Classic SignalR matches hub methods case-insensitively
@@ -220,16 +240,17 @@ export async function fetchMapShare(
                 if (method === 'pingback') {
                     ws.send(JSON.stringify({ H: 'maphub', M: 'Pong', A: [], I: invocation++ }));
                 } else if (method === 'addusers') {
-                    for (const user of (hubmsg.A ? hubmsg.A[0] as MapShareUser[] : [])) {
+                    const added = hubmsg.A?.[0];
+                    for (const user of Array.isArray(added) ? added : []) {
                         upsert(user);
                     }
                     sendFilter();
                 } else if (method === 'adduser' || method === 'updateuser' || method === 'addtrackpoints') {
-                    if (hubmsg.A && hubmsg.A[0]) upsert(hubmsg.A[0] as MapShareUser);
+                    upsert(hubmsg.A?.[0]);
                     if (filterSent) settle();
                 }
             }
-        };
+        });
     });
 }
 
@@ -257,40 +278,36 @@ export default class Task extends ETL {
         type: SchemaType = SchemaType.Input,
         flow: DataFlowType = DataFlowType.Incoming
     ): Promise<TSchema> {
-        if (flow === DataFlowType.Incoming) {
-            if (type === SchemaType.Input) {
-                return Input;
-            } else {
-                return Type.Object({
-                    inreachId: Type.String(),
-                    inreachName: Type.String(),
-                    inreachDeviceId: Type.Optional(Type.String()),
-                    inreachShareId: Type.String(),
-                    inreachEmergency: Type.Boolean(),
-                    inreachText: Type.Optional(Type.String()),
-                    inreachBattery: Type.Optional(Type.String()),
-                    inreachReceive: Type.String({ format: 'date-time' }),
-                })
-            }
-        } else {
-            return Type.Object({});
-        }
+        if (flow !== DataFlowType.Incoming) return Type.Object({});
+        if (type === SchemaType.Input) return Input;
+
+        return Type.Object({
+            inreachId: Type.String(),
+            inreachName: Type.String(),
+            inreachDeviceId: Type.Optional(Type.String()),
+            inreachShareId: Type.String(),
+            inreachEmergency: Type.Boolean(),
+            inreachText: Type.Optional(Type.String()),
+            inreachBattery: Type.Optional(Type.String()),
+            inreachReceive: Type.String({ format: 'date-time' }),
+        });
     }
 
     async control(): Promise<void> {
         const env = await this.env(Input);
 
-        if (!env.INREACH_MAP_SHARES) throw new Error('No INREACH_MAP_SHARES Provided');
-        if (!Array.isArray(env.INREACH_MAP_SHARES)) throw new Error('INREACH_MAP_SHARES must be an array');
+        const shares: unknown = env.INREACH_MAP_SHARES;
+        if (shares === undefined || shares === null) throw new Error('No INREACH_MAP_SHARES Provided');
+        if (!Array.isArray(shares)) throw new TypeError('INREACH_MAP_SHARES must be an array');
 
         const errors: string[] = [];
 
         const obtains: Array<Promise<Static<typeof Feature.InputFeature>[]>> = [];
-        for (const share of env.INREACH_MAP_SHARES) {
+        for (const input of env.INREACH_MAP_SHARES) {
             obtains.push((async (share: Share): Promise<Static<typeof Feature.InputFeature>[]> => {
                 try {
                     if (share.ShareId.startsWith('https://')) {
-                        share.ShareId = new URL(share.ShareId).pathname.replace(/^\/|\/$/g, '');
+                        share.ShareId = new URL(share.ShareId).pathname.replaceAll(/^\/|\/$/g, '');
                     } else if (share.ShareId.startsWith('share.garmin.com')) {
                         share.ShareId = share.ShareId.replace('share.garmin.com/', '').replace(/\/$/, '');
                     }
@@ -309,10 +326,10 @@ export default class Task extends ETL {
 
                     for (const user of users) {
                         const positions = user.Locations.filter((loc) => {
-                            return typeof loc.L === 'number' && typeof loc.N === 'number' && loc.D;
+                            return typeof loc.L === 'number' && typeof loc.N === 'number' && Boolean(loc.D);
                         });
 
-                        if (!positions.length) continue;
+                        if (positions.length === 0) continue;
 
                         const latest = positions.reduce((a, b) => {
                             return new Date(a.D) >= new Date(b.D) ? a : b;
@@ -350,7 +367,8 @@ export default class Task extends ETL {
                             type: 'Feature',
                             properties: {
                                 callsign,
-                                speed: latest.G * 0.277778, // km/h => m/s
+                                // km/h => m/s
+                                speed: latest.G * 0.277778,
                                 time: new Date(latest.D).toISOString(),
                                 start: new Date(latest.D).toISOString(),
                                 links: [{
@@ -385,7 +403,7 @@ export default class Task extends ETL {
                     errors.push(msg);
                     return [];
                 }
-            })(share))
+            })(input))
         }
 
         const fc: Static<typeof Feature.InputFeatureCollection> = {
@@ -394,7 +412,7 @@ export default class Task extends ETL {
         }
 
         for (const res of await Promise.all(obtains)) {
-            if (!res || !res.length) continue;
+            if (res.length === 0) continue;
             fc.features.push(...res);
         }
 
@@ -402,7 +420,7 @@ export default class Task extends ETL {
 
         // Submit whatever succeeded first, then surface any feed failures so the
         // layer turns red and CloudTAK admins are alerted
-        if (errors.length) {
+        if (errors.length > 0) {
             throw new Error(`${errors.length} of ${env.INREACH_MAP_SHARES.length} MapShare feeds failed: ${errors.join('; ')}`);
         }
     }
@@ -410,10 +428,10 @@ export default class Task extends ETL {
 
 await local(await Task.init(import.meta.url), import.meta.url);
 
-export async function handler(event: Event = {}, context?: object) {
-    return await internal(await Task.init(import.meta.url, {
+export async function handler(event: Event = {}, context?: object): ReturnType<typeof internal> {
+    return internal(await Task.init(import.meta.url, {
         logging: {
-            event: process.env.DEBUG ? true : false,
+            event: Boolean(process.env.DEBUG),
         }
     }), event, context);
 }
